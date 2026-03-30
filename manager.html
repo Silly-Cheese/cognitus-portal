@@ -50,9 +50,18 @@
           </section>
 
           <section id="submissions" style="margin-top: 28px;">
-            <h2 class="section-title">Recent employee feedback and logs</h2>
-            <p class="muted">This area summarizes recent form activity for managers. It is intended for general oversight rather than ownership-level control.</p>
-            <div id="managerResults" class="grid-two" style="margin-top: 18px;"></div>
+            <h2 class="section-title">Submission list</h2>
+            <p class="muted">Select an item below to view the full submission details.</p>
+            <div id="submissionList" style="margin-top: 18px; display: grid; gap: 14px;"></div>
+          </section>
+
+          <section id="detailsSection" style="margin-top: 28px;">
+            <h2 class="section-title">Selected result</h2>
+            <p class="muted">Click an item from the list above to inspect its contents.</p>
+            <div id="submissionDetails" class="dashboard-card" style="margin-top: 18px;">
+              <h3>No submission selected</h3>
+              <p class="muted">Once a manager selects a submission, the full result will appear here.</p>
+            </div>
           </section>
         </div>
       </main>
@@ -64,7 +73,7 @@
 
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-      import { getFirestore, collection, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+      import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
       import { requireSession, attachLogout } from "./js/auth.js";
 
       const firebaseConfig = {
@@ -82,13 +91,116 @@
       attachLogout();
 
       const managerIntro = document.getElementById("managerIntro");
-      const managerResults = document.getElementById("managerResults");
       const reflectionCount = document.getElementById("reflectionCount");
       const interactionCount = document.getElementById("interactionCount");
       const surveyCount = document.getElementById("surveyCount");
+      const submissionList = document.getElementById("submissionList");
+      const submissionDetails = document.getElementById("submissionDetails");
 
       if (session) {
-        managerIntro.textContent = `${session.username} (${session.employeeId}) is signed in with ${session.role} access. This page provides general analytics over employee feedback and interaction logging.`;
+        managerIntro.textContent = `${session.username} (${session.employeeId}) is signed in with ${session.role} access. This page provides analytics and a selectable list of employee submissions.`;
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function renderDetails(item) {
+        if (!item) {
+          submissionDetails.innerHTML = `
+            <h3>No submission selected</h3>
+            <p class="muted">Once a manager selects a submission, the full result will appear here.</p>
+          `;
+          return;
+        }
+
+        if (item.type === "weeklyReflection") {
+          submissionDetails.innerHTML = `
+            <h3>Weekly Reflection</h3>
+            <p><strong>Employee:</strong> ${escapeHtml(item.data.username || "Unknown User")}</p>
+            <p><strong>Employee ID:</strong> ${escapeHtml(item.data.employeeId || "Unknown")}</p>
+            <p><strong>Week:</strong> ${escapeHtml(item.data.weekLabel || "Unspecified")}</p>
+            <p><strong>Status:</strong> ${escapeHtml(item.data.status || "submitted")}</p>
+            <div style="margin-top: 18px; display: grid; gap: 14px;">
+              <div class="content-card">
+                <h3>Performance Reflection</h3>
+                <p>${escapeHtml(item.data.responses?.performanceReflection || "No response provided.")}</p>
+              </div>
+              <div class="content-card">
+                <h3>Challenge Reflection</h3>
+                <p>${escapeHtml(item.data.responses?.challengeReflection || "No response provided.")}</p>
+              </div>
+              <div class="content-card">
+                <h3>Goal Reflection</h3>
+                <p>${escapeHtml(item.data.responses?.goalReflection || "No response provided.")}</p>
+              </div>
+            </div>
+          `;
+          return;
+        }
+
+        if (item.type === "interactionLog") {
+          submissionDetails.innerHTML = `
+            <h3>Interaction Log</h3>
+            <p><strong>Employee:</strong> ${escapeHtml(item.data.username || "Unknown User")}</p>
+            <p><strong>Employee ID:</strong> ${escapeHtml(item.data.employeeId || "Unknown")}</p>
+            <p><strong>Date:</strong> ${escapeHtml(item.data.interactionDate || "Unspecified")}</p>
+            <p><strong>Type:</strong> ${escapeHtml(item.data.interactionType || "General")}</p>
+            <p><strong>Customer:</strong> ${escapeHtml(item.data.customerName || "Not provided")}</p>
+            <div style="margin-top: 18px; display: grid; gap: 14px;">
+              <div class="content-card">
+                <h3>Summary</h3>
+                <p>${escapeHtml(item.data.summary || "No summary provided.")}</p>
+              </div>
+              <div class="content-card">
+                <h3>Outcome</h3>
+                <p>${escapeHtml(item.data.outcome || "No outcome provided.")}</p>
+              </div>
+            </div>
+          `;
+          return;
+        }
+
+        if (item.type === "surveySubmission") {
+          submissionDetails.innerHTML = `
+            <h3>Survey Submission</h3>
+            <p><strong>Employee:</strong> ${escapeHtml(item.data.username || "Unknown User")}</p>
+            <p><strong>Employee ID:</strong> ${escapeHtml(item.data.employeeId || "Unknown")}</p>
+            <p><strong>Survey Type:</strong> ${escapeHtml(item.data.surveyType || "Unspecified")}</p>
+            <p><strong>Status:</strong> ${escapeHtml(item.data.status || "submitted")}</p>
+            <div style="margin-top: 18px; display: grid; gap: 14px;">
+              <div class="content-card">
+                <h3>Responses</h3>
+                <p><strong>Service Rating:</strong> ${escapeHtml(item.data.responses?.serviceRating || "N/A")}</p>
+                <p><strong>Customer Trend:</strong> ${escapeHtml(item.data.responses?.customerTrend || "N/A")}</p>
+                <p><strong>Improvement Plan:</strong> ${escapeHtml(item.data.responses?.improvementPlan || "N/A")}</p>
+              </div>
+            </div>
+          `;
+        }
+      }
+
+      function createListButton(label, sublabel, onClick) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "button button-secondary";
+        button.style.width = "100%";
+        button.style.justifyContent = "space-between";
+        button.style.textAlign = "left";
+        button.innerHTML = `
+          <span>
+            <strong>${escapeHtml(label)}</strong><br />
+            <span class="muted">${escapeHtml(sublabel)}</span>
+          </span>
+          <span>View</span>
+        `;
+        button.addEventListener("click", onClick);
+        return button;
       }
 
       async function loadCounts() {
@@ -99,36 +211,101 @@
         reflectionCount.textContent = `${reflections.size} total reflection submissions recorded.`;
         interactionCount.textContent = `${interactions.size} total interaction logs recorded.`;
         surveyCount.textContent = `${surveys.size} total survey submissions recorded.`;
+
+        return { reflections, interactions, surveys };
       }
 
-      async function loadRecentActivity() {
-        managerResults.innerHTML = "";
+      async function loadSubmissionList() {
+        submissionList.innerHTML = "";
 
-        const recentReflections = await getDocs(query(collection(db, "weeklyReflections"), orderBy("submittedAt", "desc"), limit(3)));
-        const recentInteractions = await getDocs(query(collection(db, "interactionLogs"), orderBy("submittedAt", "desc"), limit(3)));
+        const reflectionsSnap = await getDocs(collection(db, "weeklyReflections"));
+        const interactionsSnap = await getDocs(collection(db, "interactionLogs"));
+        const surveysSnap = await getDocs(collection(db, "surveySubmissions"));
 
-        if (recentReflections.empty && recentInteractions.empty) {
-          managerResults.innerHTML = '<article class="dashboard-card"><h3>No recent activity</h3><p>No reflection forms or interaction logs were found.</p></article>';
+        const items = [];
+
+        reflectionsSnap.forEach((docSnap) => {
+          items.push({
+            type: "weeklyReflection",
+            id: docSnap.id,
+            data: docSnap.data(),
+            submittedAt: docSnap.data().submittedAt?.seconds || 0
+          });
+        });
+
+        interactionsSnap.forEach((docSnap) => {
+          items.push({
+            type: "interactionLog",
+            id: docSnap.id,
+            data: docSnap.data(),
+            submittedAt: docSnap.data().submittedAt?.seconds || 0
+          });
+        });
+
+        surveysSnap.forEach((docSnap) => {
+          items.push({
+            type: "surveySubmission",
+            id: docSnap.id,
+            data: docSnap.data(),
+            submittedAt: docSnap.data().submittedAt?.seconds || 0
+          });
+        });
+
+        items.sort((a, b) => b.submittedAt - a.submittedAt);
+
+        if (!items.length) {
+          submissionList.innerHTML = `
+            <article class="dashboard-card">
+              <h3>No submissions found</h3>
+              <p>No reflections, interaction logs, or survey submissions were found.</p>
+            </article>
+          `;
           return;
         }
 
-        recentReflections.forEach((docSnap) => {
-          const data = docSnap.data();
-          managerResults.innerHTML += `<article class="dashboard-card"><h3>Weekly Reflection</h3><p><strong>${data.username || "Unknown User"}</strong> submitted a reflection for <strong>${data.weekLabel || "unspecified week"}</strong>.</p><p class="muted">Status: ${data.status || "submitted"}</p></article>`;
+        items.forEach((item) => {
+          const wrapper = document.createElement("article");
+          wrapper.className = "dashboard-card";
+
+          let label = "";
+          let sublabel = "";
+
+          if (item.type === "weeklyReflection") {
+            label = `Weekly Reflection — ${item.data.username || "Unknown User"}`;
+            sublabel = `${item.data.weekLabel || "Unspecified Week"} • ${item.data.employeeId || "Unknown ID"}`;
+          } else if (item.type === "interactionLog") {
+            label = `Interaction Log — ${item.data.username || "Unknown User"}`;
+            sublabel = `${item.data.interactionType || "General"} • ${item.data.interactionDate || "No Date"}`;
+          } else {
+            label = `Survey Submission — ${item.data.username || "Unknown User"}`;
+            sublabel = `${item.data.surveyType || "Survey"} • ${item.data.employeeId || "Unknown ID"}`;
+          }
+
+          wrapper.appendChild(
+            createListButton(label, sublabel, () => renderDetails(item))
+          );
+
+          submissionList.appendChild(wrapper);
         });
 
-        recentInteractions.forEach((docSnap) => {
-          const data = docSnap.data();
-          managerResults.innerHTML += `<article class="dashboard-card"><h3>Interaction Log</h3><p><strong>${data.username || "Unknown User"}</strong> logged an interaction with outcome <strong>${data.outcome || "unspecified"}</strong>.</p><p class="muted">Type: ${data.interactionType || "general"}</p></article>`;
-        });
+        renderDetails(items[0]);
       }
 
-      Promise.all([loadCounts(), loadRecentActivity()]).catch((error) => {
+      Promise.all([loadCounts(), loadSubmissionList()]).catch((error) => {
         console.error(error);
-        managerResults.innerHTML = '<article class="dashboard-card"><h3>Load error</h3><p>There was a problem loading manager analytics.</p></article>';
-        reflectionCount.textContent = 'Unable to load.';
-        interactionCount.textContent = 'Unable to load.';
-        surveyCount.textContent = 'Unable to load.';
+        submissionList.innerHTML = `
+          <article class="dashboard-card">
+            <h3>Load error</h3>
+            <p>There was a problem loading manager submissions.</p>
+          </article>
+        `;
+        submissionDetails.innerHTML = `
+          <h3>Load error</h3>
+          <p class="muted">Unable to load submission details.</p>
+        `;
+        reflectionCount.textContent = "Unable to load.";
+        interactionCount.textContent = "Unable to load.";
+        surveyCount.textContent = "Unable to load.";
       });
     </script>
   </body>
