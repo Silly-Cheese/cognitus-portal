@@ -83,7 +83,8 @@
       };
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
-      const session = requireSession(["employee", "manager", "ownership"]);
+      const session = await requireSession(["employee", "manager", "ownership"]);
+      if (!session) throw new Error("Session unavailable");
       attachLogout();
 
       const form = document.getElementById("surveyForm");
