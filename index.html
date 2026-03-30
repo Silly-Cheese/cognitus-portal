@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cognitus Portal | Staff Access</title>
+    <meta name="description" content="Cognitus internal staff portal for employees, managers, and ownership." />
+    <meta name="theme-color" content="#0a1020" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="topbar">
+        <a class="brand" href="index.html" aria-label="Cognitus Portal home">
+          <span class="brand-mark brand-mark-text">C</span>
+          <span class="brand-lockup">
+            <span class="brand-wordmark">Cognitus Portal</span>
+            <span class="brand-sub">Internal Staff Access</span>
+          </span>
+        </a>
+      </header>
+
+      <main class="page-shell">
+        <div class="narrow-shell">
+          <span class="page-kicker">SECURE INTERNAL ACCESS</span>
+          <h1 class="page-title">Staff portal sign in.</h1>
+          <p class="page-intro">Enter your employee ID and password to access the Cognitus staff portal. Access, forms, analytics, and controls are role-based.</p>
+
+          <section class="form-wrap" style="margin-top: 28px;">
+            <form id="loginForm" class="apply-form">
+              <div class="form-grid">
+                <div class="form-group full">
+                  <label class="form-label" for="employeeId">Employee ID</label>
+                  <input class="form-input" id="employeeId" name="employeeId" type="text" placeholder="Example: EMP-0001" required />
+                </div>
+
+                <div class="form-group full">
+                  <label class="form-label" for="password">Password</label>
+                  <input class="form-input" id="password" name="password" type="password" required />
+                </div>
+              </div>
+
+              <div id="formMessage" class="form-message"></div>
+
+              <div class="form-actions">
+                <button class="button button-primary" id="loginButton" type="submit">Sign In</button>
+                <span class="inline-status" id="formStatus">Awaiting credentials.</span>
+              </div>
+            </form>
+          </section>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <p>© 2026 Cognitus Portal. Internal use only.</p>
+      </footer>
+    </div>
+
+    <script type="module" src="js/auth.js"></script>
+  </body>
+</html>
