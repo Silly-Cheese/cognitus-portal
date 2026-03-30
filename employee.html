@@ -77,17 +77,16 @@
 
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
-      const session = requireSession(["employee", "manager", "ownership"]);
+      const session = await requireSession(["employee", "manager", "ownership"]);
+      if (!session) throw new Error("Session unavailable");
       attachLogout();
 
       const formsGrid = document.getElementById("formsGrid");
       const employeeIntro = document.getElementById("employeeIntro");
       const employeeSummary = document.getElementById("employeeSummary");
 
-      if (session) {
-        employeeIntro.textContent = `${session.username} (${session.employeeId}) is signed in. This workspace displays employee-level tools that are currently enabled.`;
-        employeeSummary.textContent = `Role: ${session.role} • Department: ${session.department || "unassigned"}`;
-      }
+      employeeIntro.textContent = `${session.username} (${session.employeeId}) is signed in. This workspace displays employee-level tools that are currently enabled.`;
+      employeeSummary.textContent = `Role: ${session.role} • Department: ${session.department || "unassigned"}`;
 
       async function loadForms() {
         const settingsSnap = await getDoc(doc(db, "portalSettings", "GLOBAL"));
@@ -100,6 +99,7 @@
 
         const forms = (settingsSnap.data().forms) || {};
         const entries = Object.entries(forms);
+
         if (!entries.length) {
           formsGrid.innerHTML = '<article class="dashboard-card"><h3>No forms configured</h3><p>No employee-facing forms are configured yet.</p></article>';
           return;
@@ -107,31 +107,41 @@
 
         const formConfig = {
           weeklyReflection: {
-            title: 'Weekly Reflection Form',
-            description: 'Submit a structured weekly reflection about performance, challenges, and goals.',
-            href: 'forms/weekly.html'
+            title: "Weekly Reflection Form",
+            description: "Submit a structured weekly reflection about performance, challenges, and goals.",
+            href: "forms/weekly.html"
           },
           interactionLog: {
-            title: 'Customer Interaction Log',
-            description: 'Document a customer interaction clearly and professionally for management review.',
-            href: 'forms/interaction.html'
+            title: "Customer Interaction Log",
+            description: "Document a customer interaction clearly and professionally for management review.",
+            href: "forms/interaction.html"
           },
           customerSurvey: {
-            title: 'Customer Survey',
-            description: 'Complete an active customer service survey released for employee participation.',
-            href: 'forms/customer-survey.html'
+            title: "Customer Survey",
+            description: "Complete an active customer service survey released for employee participation.",
+            href: "forms/customer-survey.html"
           }
         };
 
         entries.forEach(([key, value]) => {
           const rolesAllowed = Array.isArray(value.rolesAllowed) ? value.rolesAllowed : [];
-          if (!value.unlocked || !rolesAllowed.includes('employee')) return;
+          if (!value.unlocked || !rolesAllowed.includes("employee")) return;
+
           const config = formConfig[key] || {
             title: key,
-            description: 'This form is currently available.',
-            href: '#'
+            description: "This form is currently available.",
+            href: "#"
           };
-          formsGrid.innerHTML += `<article class="dashboard-card"><h3>${config.title}</h3><p>${config.description}</p><div class="form-actions" style="margin-top: 18px;"><a class="button button-primary" href="${config.href}">Open Form</a></div></article>`;
+
+          formsGrid.innerHTML += `
+            <article class="dashboard-card">
+              <h3>${config.title}</h3>
+              <p>${config.description}</p>
+              <div class="form-actions" style="margin-top: 18px;">
+                <a class="button button-primary" href="${config.href}">Open Form</a>
+              </div>
+            </article>
+          `;
         });
 
         if (!formsGrid.innerHTML.trim()) {
