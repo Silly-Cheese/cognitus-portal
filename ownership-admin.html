@@ -11,6 +11,35 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
       rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
+    <style>
+      .employee-card-button {
+        width: 100%;
+        text-align: left;
+        background: transparent;
+        border: none;
+        color: inherit;
+        cursor: pointer;
+      }
+
+      .employee-card-button .dashboard-card {
+        transition: transform 0.2s ease, border-color 0.2s ease;
+      }
+
+      .employee-card-button:hover .dashboard-card {
+        transform: translateY(-2px);
+        border-color: rgba(142, 176, 255, 0.35);
+      }
+
+      .employee-card-button.active-card .dashboard-card {
+        border-color: rgba(142, 176, 255, 0.5);
+        box-shadow: 0 0 0 1px rgba(142, 176, 255, 0.22);
+      }
+
+      .reset-link-panel {
+        display: none;
+        margin-top: 18px;
+      }
+    </style>
   </head>
   <body>
     <div class="site-shell">
@@ -25,7 +54,7 @@
         <nav class="nav-links" aria-label="Primary navigation">
           <a href="dashboard.html">Dashboard</a>
           <a href="ownership.html">Ownership</a>
-          <a href="#employees">Employees</a>
+          <a href="#employeeListSection">Employees</a>
         </nav>
         <button class="button button-secondary" id="logoutButton" type="button">Log Out</button>
       </header>
@@ -35,51 +64,93 @@
           <span class="page-kicker">OWNERSHIP TOOLS</span>
           <h1 class="page-title">Advanced employee administration.</h1>
           <p class="page-intro">
-            Reset passwords, deactivate employees, reactivate employees, and delete employee records
-            through a dedicated ownership-only workspace.
+            Select an employee profile below to edit account details, reset passwords,
+            generate password reset links, deactivate access, reactivate accounts, or delete records.
           </p>
 
-          <section id="employees" class="form-wrap" style="margin-top: 28px;">
-            <div class="form-grid">
-              <div class="form-group full">
-                <label class="form-label" for="selectedEmployeeId">Employee ID</label>
-                <input
-                  class="form-input"
-                  id="selectedEmployeeId"
-                  type="text"
-                  placeholder="Example: EMP-0001" />
-              </div>
-              <div class="form-group full">
-                <label class="form-label" for="newPassword">New Password</label>
-                <input
-                  class="form-input"
-                  id="newPassword"
-                  type="text"
-                  placeholder="Enter a new password for the selected employee" />
-              </div>
-            </div>
+          <section class="form-wrap" style="margin-top: 28px;">
+            <h2 class="section-title">Selected employee</h2>
+            <p class="muted">Click an employee profile below to load it into this panel.</p>
 
             <div id="adminMessage" class="form-message" style="margin-top: 18px;"></div>
 
-            <div class="form-actions" style="margin-top: 18px;">
-              <button class="button button-primary" id="resetPasswordButton" type="button">
-                Reset / Change Password
-              </button>
-              <button class="button button-secondary" id="deactivateButton" type="button">
-                Deactivate Employee
-              </button>
-              <button class="button button-secondary" id="reactivateButton" type="button">
-                Reactivate Employee
-              </button>
-              <button class="button button-secondary" id="deleteButton" type="button">
-                Delete Employee
-              </button>
+            <form id="editEmployeeForm" class="apply-form" style="margin-top: 18px;">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label" for="selectedEmployeeId">Employee ID</label>
+                  <input class="form-input" id="selectedEmployeeId" type="text" readonly />
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="editUsername">Username</label>
+                  <input class="form-input" id="editUsername" type="text" />
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="editDiscordId">Discord ID</label>
+                  <input class="form-input" id="editDiscordId" type="text" />
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="editRole">Role</label>
+                  <select class="form-select" id="editRole">
+                    <option value="employee">Employee</option>
+                    <option value="manager">Manager</option>
+                    <option value="ownership">Ownership</option>
+                  </select>
+                </div>
+
+                <div class="form-group full">
+                  <label class="form-label" for="editDepartment">Department</label>
+                  <input class="form-input" id="editDepartment" type="text" />
+                </div>
+
+                <div class="form-group full">
+                  <label class="form-label" for="newPassword">New Password</label>
+                  <input
+                    class="form-input"
+                    id="newPassword"
+                    type="text"
+                    placeholder="Leave blank unless changing password" />
+                </div>
+              </div>
+
+              <div class="form-actions" style="margin-top: 18px;">
+                <button class="button button-primary" id="saveChangesButton" type="submit">
+                  Save Changes
+                </button>
+                <button class="button button-primary" id="generateAuthAccountButton" type="button">
+                  Create Auth Account
+                </button>
+                <button class="button button-primary" id="generateResetLinkButton" type="button">
+                  Generate Password Reset Link
+                </button>
+                <button class="button button-secondary" id="deactivateButton" type="button">
+                  Deactivate
+                </button>
+                <button class="button button-secondary" id="reactivateButton" type="button">
+                  Reactivate
+                </button>
+                <button class="button button-secondary" id="deleteButton" type="button">
+                  Delete
+                </button>
+              </div>
+            </form>
+
+            <div id="resetLinkPanel" class="form-wrap reset-link-panel">
+              <h3 style="margin-bottom: 12px;">Generated Password Reset Link</h3>
+              <textarea class="form-textarea" id="generatedResetLink" readonly></textarea>
+              <div class="form-actions" style="margin-top: 16px;">
+                <button class="button button-secondary" id="copyResetLinkButton" type="button">
+                  Copy Link
+                </button>
+              </div>
             </div>
           </section>
 
-          <section style="margin-top: 28px;">
-            <h2 class="section-title">Employee reference list</h2>
-            <p class="muted">Use this list to confirm employee IDs before taking an action.</p>
+          <section id="employeeListSection" style="margin-top: 28px;">
+            <h2 class="section-title">Employee profiles</h2>
+            <p class="muted">Select a profile to manage that account directly.</p>
             <div id="employeeReferenceList" class="grid-two" style="margin-top: 18px;"></div>
           </section>
         </div>
@@ -123,23 +194,30 @@
 
       const adminMessage = document.getElementById("adminMessage");
       const employeeReferenceList = document.getElementById("employeeReferenceList");
+      const editEmployeeForm = document.getElementById("editEmployeeForm");
+
+      const selectedEmployeeId = document.getElementById("selectedEmployeeId");
+      const editUsername = document.getElementById("editUsername");
+      const editDiscordId = document.getElementById("editDiscordId");
+      const editRole = document.getElementById("editRole");
+      const editDepartment = document.getElementById("editDepartment");
+      const newPassword = document.getElementById("newPassword");
+
+      const resetLinkPanel = document.getElementById("resetLinkPanel");
+      const generatedResetLink = document.getElementById("generatedResetLink");
+      const copyResetLinkButton = document.getElementById("copyResetLinkButton");
+      const generateAuthAccountButton = document.getElementById("generateAuthAccountButton");
+      const generateResetLinkButton = document.getElementById("generateResetLinkButton");
+
+      let selectedEmployeeDoc = null;
+
+      const BACKEND_BASE_URL = "YOUR_BACKEND_URL_HERE";
 
       function setMessage(type, text) {
         adminMessage.className = "form-message";
         if (type === "success") adminMessage.classList.add("is-success");
         if (type === "error") adminMessage.classList.add("is-error");
         adminMessage.textContent = text;
-      }
-
-      async function findEmployeeRecord(employeeId) {
-        const employeeQuery = query(
-          collection(db, "employees"),
-          where("employeeId", "==", employeeId),
-          limit(1)
-        );
-        const snapshot = await getDocs(employeeQuery);
-        if (snapshot.empty) return null;
-        return snapshot.docs[0];
       }
 
       async function writeAudit(action, targetId, details) {
@@ -155,6 +233,42 @@
         });
       }
 
+      function makeInternalEmail(employeeId) {
+        return `${String(employeeId).toLowerCase()}@cognitus.internal`;
+      }
+
+      async function findEmployeeRecord(employeeId) {
+        const employeeQuery = query(
+          collection(db, "employees"),
+          where("employeeId", "==", employeeId),
+          limit(1)
+        );
+        const snapshot = await getDocs(employeeQuery);
+        if (snapshot.empty) return null;
+        return snapshot.docs[0];
+      }
+
+      function loadSelectedEmployee(docSnap) {
+        selectedEmployeeDoc = docSnap;
+        const data = docSnap.data();
+
+        selectedEmployeeId.value = data.employeeId || "";
+        editUsername.value = data.username || "";
+        editDiscordId.value = data.discordId || "";
+        editRole.value = data.role || "employee";
+        editDepartment.value = data.department || "";
+        newPassword.value = "";
+        generatedResetLink.value = "";
+        resetLinkPanel.style.display = "none";
+
+        document.querySelectorAll(".employee-card-button").forEach((button) => {
+          button.classList.remove("active-card");
+        });
+
+        const activeButton = document.querySelector(`[data-employee-doc-id="${docSnap.id}"]`);
+        if (activeButton) activeButton.classList.add("active-card");
+      }
+
       async function loadEmployees() {
         const snapshot = await getDocs(collection(db, "employees"));
         employeeReferenceList.innerHTML = "";
@@ -165,74 +279,184 @@
           return;
         }
 
-        snapshot.forEach((docSnap) => {
+        const docs = [];
+        snapshot.forEach((docSnap) => docs.push(docSnap));
+
+        docs.forEach((docSnap) => {
           const data = docSnap.data();
           employeeReferenceList.innerHTML += `
-            <article class="dashboard-card">
-              <h3>${data.username}</h3>
-              <p><strong>${data.employeeId}</strong> • ${data.role}</p>
-              <p class="muted">
-                Active: ${data.active ? "Yes" : "No"} •
-                Portal Enabled: ${data.portalEnabled ? "Yes" : "No"}
-              </p>
-            </article>
+            <button class="employee-card-button" data-employee-doc-id="${docSnap.id}" type="button">
+              <div class="dashboard-card">
+                <h3>${data.username}</h3>
+                <p><strong>${data.employeeId}</strong> • ${data.role}</p>
+                <p class="muted">
+                  Department: ${data.department || "Unassigned"}<br />
+                  Active: ${data.active ? "Yes" : "No"} •
+                  Portal Enabled: ${data.portalEnabled ? "Yes" : "No"}<br />
+                  Auth Email: ${data.authEmail || makeInternalEmail(data.employeeId)}
+                </p>
+              </div>
+            </button>
           `;
         });
+
+        document.querySelectorAll(".employee-card-button").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const docId = button.dataset.employeeDocId;
+            const match = docs.find((d) => d.id === docId);
+            if (match) loadSelectedEmployee(match);
+          });
+        });
+
+        if (!selectedEmployeeDoc && docs.length) {
+          loadSelectedEmployee(docs[0]);
+        }
       }
 
-      document.getElementById("resetPasswordButton").addEventListener("click", async () => {
-        const employeeId = document.getElementById("selectedEmployeeId").value.trim();
-        const newPassword = document.getElementById("newPassword").value;
+      editEmployeeForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
 
-        if (!employeeId || !newPassword) {
-          setMessage("error", "Employee ID and new password are required.");
+        if (!selectedEmployeeDoc) {
+          setMessage("error", "No employee profile is selected.");
           return;
         }
 
         try {
-          const employeeDoc = await findEmployeeRecord(employeeId);
-          if (!employeeDoc) {
-            setMessage("error", "Employee not found.");
+          const updatePayload = {
+            username: editUsername.value.trim(),
+            discordId: editDiscordId.value.trim() || null,
+            role: editRole.value,
+            department: editDepartment.value.trim(),
+            updatedAt: serverTimestamp()
+          };
+
+          if (newPassword.value.trim()) {
+            updatePayload.password = newPassword.value;
+            updatePayload.passwordLastChangedAt = serverTimestamp();
+          }
+
+          await updateDoc(selectedEmployeeDoc.ref, updatePayload);
+
+          await writeAudit(
+            "update_employee",
+            selectedEmployeeId.value,
+            `Updated profile fields for ${selectedEmployeeId.value}.`
+          );
+
+          setMessage("success", "Employee profile updated successfully.");
+          await loadEmployees();
+        } catch (error) {
+          console.error(error);
+          setMessage("error", "There was a problem saving the employee changes.");
+        }
+      });
+
+      generateAuthAccountButton.addEventListener("click", async () => {
+        if (!selectedEmployeeDoc) {
+          setMessage("error", "No employee profile is selected.");
+          return;
+        }
+
+        try {
+          const employeeId = selectedEmployeeId.value;
+          const response = await fetch(`${BACKEND_BASE_URL}/create-auth-account`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ employeeId })
+          });
+
+          const result = await response.json();
+
+          if (!response.ok || !result.success) {
+            setMessage("error", result.error || "Failed to create auth account.");
             return;
           }
 
-          await updateDoc(employeeDoc.ref, {
-            password: newPassword,
-            passwordLastChangedAt: serverTimestamp(),
+          await updateDoc(selectedEmployeeDoc.ref, {
+            authEmail: result.authEmail,
+            authUid: result.authUid,
             updatedAt: serverTimestamp()
           });
 
-          await writeAudit("reset_password", employeeId, `Updated password for ${employeeId}.`);
-          setMessage("success", "Password updated successfully.");
-          document.getElementById("newPassword").value = "";
+          setMessage("success", `Auth account ready for ${employeeId}.`);
+          await loadEmployees();
         } catch (error) {
           console.error(error);
-          setMessage("error", "There was a problem updating the password.");
+          setMessage("error", "There was a problem creating the auth account.");
+        }
+      });
+
+      generateResetLinkButton.addEventListener("click", async () => {
+        if (!selectedEmployeeDoc) {
+          setMessage("error", "No employee profile is selected.");
+          return;
+        }
+
+        try {
+          const employeeId = selectedEmployeeId.value;
+
+          const response = await fetch(`${BACKEND_BASE_URL}/generate-reset-link`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ employeeId })
+          });
+
+          const result = await response.json();
+
+          if (!response.ok || !result.success) {
+            setMessage("error", result.error || "Failed to generate reset link.");
+            return;
+          }
+
+          generatedResetLink.value = result.resetLink;
+          resetLinkPanel.style.display = "block";
+
+          await updateDoc(selectedEmployeeDoc.ref, {
+            authEmail: result.authEmail,
+            updatedAt: serverTimestamp()
+          });
+
+          setMessage("success", "Password reset link generated successfully.");
+          await loadEmployees();
+        } catch (error) {
+          console.error(error);
+          setMessage("error", "There was a problem generating the reset link.");
+        }
+      });
+
+      copyResetLinkButton.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(generatedResetLink.value);
+          setMessage("success", "Reset link copied to clipboard.");
+        } catch (error) {
+          console.error(error);
+          setMessage("error", "Unable to copy the reset link.");
         }
       });
 
       document.getElementById("deactivateButton").addEventListener("click", async () => {
-        const employeeId = document.getElementById("selectedEmployeeId").value.trim();
-
-        if (!employeeId) {
-          setMessage("error", "Employee ID is required.");
+        if (!selectedEmployeeDoc) {
+          setMessage("error", "No employee profile is selected.");
           return;
         }
 
         try {
-          const employeeDoc = await findEmployeeRecord(employeeId);
-          if (!employeeDoc) {
-            setMessage("error", "Employee not found.");
-            return;
-          }
-
-          await updateDoc(employeeDoc.ref, {
+          await updateDoc(selectedEmployeeDoc.ref, {
             active: false,
             portalEnabled: false,
             updatedAt: serverTimestamp()
           });
 
-          await writeAudit("update_employee", employeeId, `Deactivated ${employeeId}.`);
+          await writeAudit(
+            "update_employee",
+            selectedEmployeeId.value,
+            `Deactivated ${selectedEmployeeId.value}.`
+          );
+
           setMessage("success", "Employee deactivated successfully.");
           await loadEmployees();
         } catch (error) {
@@ -242,27 +466,24 @@
       });
 
       document.getElementById("reactivateButton").addEventListener("click", async () => {
-        const employeeId = document.getElementById("selectedEmployeeId").value.trim();
-
-        if (!employeeId) {
-          setMessage("error", "Employee ID is required.");
+        if (!selectedEmployeeDoc) {
+          setMessage("error", "No employee profile is selected.");
           return;
         }
 
         try {
-          const employeeDoc = await findEmployeeRecord(employeeId);
-          if (!employeeDoc) {
-            setMessage("error", "Employee not found.");
-            return;
-          }
-
-          await updateDoc(employeeDoc.ref, {
+          await updateDoc(selectedEmployeeDoc.ref, {
             active: true,
             portalEnabled: true,
             updatedAt: serverTimestamp()
           });
 
-          await writeAudit("update_employee", employeeId, `Reactivated ${employeeId}.`);
+          await writeAudit(
+            "update_employee",
+            selectedEmployeeId.value,
+            `Reactivated ${selectedEmployeeId.value}.`
+          );
+
           setMessage("success", "Employee reactivated successfully.");
           await loadEmployees();
         } catch (error) {
@@ -272,27 +493,35 @@
       });
 
       document.getElementById("deleteButton").addEventListener("click", async () => {
-        const employeeId = document.getElementById("selectedEmployeeId").value.trim();
-
-        if (!employeeId) {
-          setMessage("error", "Employee ID is required.");
+        if (!selectedEmployeeDoc) {
+          setMessage("error", "No employee profile is selected.");
           return;
         }
 
+        const employeeId = selectedEmployeeId.value;
         const confirmed = window.confirm(`Delete employee ${employeeId}? This cannot be undone.`);
         if (!confirmed) return;
 
         try {
-          const employeeDoc = await findEmployeeRecord(employeeId);
-          if (!employeeDoc) {
-            setMessage("error", "Employee not found.");
-            return;
-          }
+          await deleteDoc(selectedEmployeeDoc.ref);
 
-          await deleteDoc(employeeDoc.ref);
-          await writeAudit("delete_employee", employeeId, `Deleted ${employeeId}.`);
+          await writeAudit(
+            "delete_employee",
+            employeeId,
+            `Deleted ${employeeId}.`
+          );
+
           setMessage("success", "Employee deleted successfully.");
-          document.getElementById("selectedEmployeeId").value = "";
+          selectedEmployeeDoc = null;
+          selectedEmployeeId.value = "";
+          editUsername.value = "";
+          editDiscordId.value = "";
+          editRole.value = "employee";
+          editDepartment.value = "";
+          newPassword.value = "";
+          generatedResetLink.value = "";
+          resetLinkPanel.style.display = "none";
+
           await loadEmployees();
         } catch (error) {
           console.error(error);
