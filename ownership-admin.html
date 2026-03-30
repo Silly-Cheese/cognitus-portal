@@ -119,10 +119,7 @@
                 <button class="button button-primary" id="saveChangesButton" type="submit">
                   Save Changes
                 </button>
-                <button class="button button-primary" id="generateAuthAccountButton" type="button">
-                  Create Auth Account
-                </button>
-                <button class="button button-primary" id="generateResetLinkButton" type="button">
+                <button class="button button-primary" id="generateTokenButton" type="button">
                   Generate Password Reset Link
                 </button>
                 <button class="button button-secondary" id="deactivateButton" type="button">
@@ -206,12 +203,11 @@
       const resetLinkPanel = document.getElementById("resetLinkPanel");
       const generatedResetLink = document.getElementById("generatedResetLink");
       const copyResetLinkButton = document.getElementById("copyResetLinkButton");
-      const generateAuthAccountButton = document.getElementById("generateAuthAccountButton");
-      const generateResetLinkButton = document.getElementById("generateResetLinkButton");
+      const generateTokenButton = document.getElementById("generateTokenButton");
 
       let selectedEmployeeDoc = null;
 
-      const BACKEND_BASE_URL = "https://script.google.com/macros/s/AKfycbymcLmLA_Ly4LZJ93QJ_tA3Vl08sr8g5Lui9Hw0-87osEtwTE1KSI2s36zhA45mP6kR/exec";
+      const APPS_SCRIPT_URL = "YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
 
       function setMessage(type, text) {
         adminMessage.className = "form-message";
@@ -231,21 +227,6 @@
           details,
           createdAt: serverTimestamp()
         });
-      }
-
-      function makeInternalEmail(employeeId) {
-        return `${String(employeeId).toLowerCase()}@cognitus.internal`;
-      }
-
-      async function findEmployeeRecord(employeeId) {
-        const employeeQuery = query(
-          collection(db, "employees"),
-          where("employeeId", "==", employeeId),
-          limit(1)
-        );
-        const snapshot = await getDocs(employeeQuery);
-        if (snapshot.empty) return null;
-        return snapshot.docs[0];
       }
 
       function loadSelectedEmployee(docSnap) {
@@ -292,8 +273,7 @@
                 <p class="muted">
                   Department: ${data.department || "Unassigned"}<br />
                   Active: ${data.active ? "Yes" : "No"} •
-                  Portal Enabled: ${data.portalEnabled ? "Yes" : "No"}<br />
-                  Auth Email: ${data.authEmail || makeInternalEmail(data.employeeId)}
+                  Portal Enabled: ${data.portalEnabled ? "Yes" : "No"}
                 </p>
               </div>
             </button>
@@ -351,77 +331,48 @@
         }
       });
 
-      generateAuthAccountButton.addEventListener("click", async () => {
+      generateTokenButton.addEventListener("click", async () => {
         if (!selectedEmployeeDoc) {
           setMessage("error", "No employee profile is selected.");
           return;
         }
 
-        try {
-          const employeeId = selectedEmployeeId.value;
-          const response = await fetch(`${BACKEND_BASE_URL}/create-auth-account`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ employeeId })
-          });
-
-          const result = await response.json();
-
-          if (!response.ok || !result.success) {
-            setMessage("error", result.error || "Failed to create auth account.");
-            return;
-          }
-
-          await updateDoc(selectedEmployeeDoc.ref, {
-            authEmail: result.authEmail,
-            authUid: result.authUid,
-            updatedAt: serverTimestamp()
-          });
-
-          setMessage("success", `Auth account ready for ${employeeId}.`);
-          await loadEmployees();
-        } catch (error) {
-          console.error(error);
-          setMessage("error", "There was a problem creating the auth account.");
-        }
-      });
-
-      generateResetLinkButton.addEventListener("click", async () => {
-        if (!selectedEmployeeDoc) {
-          setMessage("error", "No employee profile is selected.");
+        if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "YOUR_APPS_SCRIPT_WEB_APP_URL_HERE") {
+          setMessage("error", "Set your Apps Script web app URL first.");
           return;
         }
 
         try {
           const employeeId = selectedEmployeeId.value;
-
-          const response = await fetch(`${BACKEND_BASE_URL}/generate-reset-link`, {
+          const response = await fetch(APPS_SCRIPT_URL, {
             method: "POST",
             headers: {
-              "Content-Type": "application/json"
+              "Content-Type": "text/plain;charset=utf-8"
             },
-            body: JSON.stringify({ employeeId })
+            body: JSON.stringify({
+              action: "generateToken",
+              employeeId
+            })
           });
 
-          const result = await response.json();
+          const resultText = await response.text();
+          const result = JSON.parse(resultText);
 
-          if (!response.ok || !result.success) {
+          if (!result.success) {
             setMessage("error", result.error || "Failed to generate reset link.");
             return;
           }
 
-          generatedResetLink.value = result.resetLink;
+          generatedResetLink.value = result.link;
           resetLinkPanel.style.display = "block";
 
-          await updateDoc(selectedEmployeeDoc.ref, {
-            authEmail: result.authEmail,
-            updatedAt: serverTimestamp()
-          });
+          await writeAudit(
+            "generate_password_reset_link",
+            employeeId,
+            `Generated password reset link for ${employeeId}.`
+          );
 
           setMessage("success", "Password reset link generated successfully.");
-          await loadEmployees();
         } catch (error) {
           console.error(error);
           setMessage("error", "There was a problem generating the reset link.");
