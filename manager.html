@@ -9,6 +9,47 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
+    <style>
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 999;
+        padding: 20px;
+      }
+
+      .modal-overlay.active {
+        display: flex;
+      }
+
+      .modal-card {
+        width: min(100%, 560px);
+        padding: 26px;
+        border-radius: 22px;
+        border: 1px solid rgba(112, 147, 255, 0.16);
+        background: linear-gradient(180deg, rgba(16, 24, 44, 0.96), rgba(8, 13, 26, 0.96));
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+      }
+
+      .modal-card h3 {
+        font-size: 1.4rem;
+        margin-bottom: 10px;
+      }
+
+      .modal-card p {
+        color: var(--text-secondary);
+        margin-bottom: 18px;
+      }
+
+      .submission-list-card button {
+        width: 100%;
+        justify-content: space-between;
+        text-align: left;
+      }
+    </style>
   </head>
   <body>
     <div class="site-shell">
@@ -71,9 +112,36 @@
       </footer>
     </div>
 
+    <div class="modal-overlay" id="deleteModal">
+      <div class="modal-card">
+        <h3>Delete Submission</h3>
+        <p>Enter Employee ID</p>
+
+        <div class="form-group">
+          <label class="form-label" for="confirmEmployeeId">Employee ID</label>
+          <input class="form-input" id="confirmEmployeeId" type="text" placeholder="Example: EMP-0002" />
+        </div>
+
+        <div id="modalMessage" class="form-message" style="margin-top: 16px;"></div>
+
+        <div class="form-actions" style="margin-top: 18px;">
+          <button class="button button-primary" id="confirmDeleteButton" type="button">Confirm Delete</button>
+          <button class="button button-secondary" id="cancelDeleteButton" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-      import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+      import {
+        getFirestore,
+        collection,
+        getDocs,
+        doc,
+        deleteDoc,
+        addDoc,
+        serverTimestamp
+      } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
       import { requireSession, attachLogout } from "./js/auth.js";
 
       const firebaseConfig = {
@@ -97,6 +165,14 @@
       const submissionList = document.getElementById("submissionList");
       const submissionDetails = document.getElementById("submissionDetails");
 
+      const deleteModal = document.getElementById("deleteModal");
+      const confirmEmployeeId = document.getElementById("confirmEmployeeId");
+      const confirmDeleteButton = document.getElementById("confirmDeleteButton");
+      const cancelDeleteButton = document.getElementById("cancelDeleteButton");
+      const modalMessage = document.getElementById("modalMessage");
+
+      let selectedSubmission = null;
+
       if (session) {
         managerIntro.textContent = `${session.username} (${session.employeeId}) is signed in with ${session.role} access. This page provides analytics and a selectable list of employee submissions.`;
       }
@@ -110,7 +186,43 @@
           .replaceAll("'", "&#39;");
       }
 
+      function setModalMessage(type, text) {
+        modalMessage.className = "form-message";
+        if (type === "success") modalMessage.classList.add("is-success");
+        if (type === "error") modalMessage.classList.add("is-error");
+        modalMessage.textContent = text;
+      }
+
+      function openDeleteModal() {
+        confirmEmployeeId.value = "";
+        setModalMessage("", "");
+        deleteModal.classList.add("active");
+      }
+
+      function closeDeleteModal() {
+        deleteModal.classList.remove("active");
+        confirmEmployeeId.value = "";
+        setModalMessage("", "");
+      }
+
+      function renderDeleteButton() {
+        if (!selectedSubmission) return "";
+        return `
+          <div class="form-actions" style="margin-top: 20px;">
+            <button class="button button-secondary" id="deleteSelectedSubmissionButton" type="button">Delete Submission</button>
+          </div>
+        `;
+      }
+
+      function attachDeleteButtonHandler() {
+        const button = document.getElementById("deleteSelectedSubmissionButton");
+        if (!button) return;
+        button.addEventListener("click", openDeleteModal);
+      }
+
       function renderDetails(item) {
+        selectedSubmission = item;
+
         if (!item) {
           submissionDetails.innerHTML = `
             <h3>No submission selected</h3>
@@ -140,7 +252,9 @@
                 <p>${escapeHtml(item.data.responses?.goalReflection || "No response provided.")}</p>
               </div>
             </div>
+            ${renderDeleteButton()}
           `;
+          attachDeleteButtonHandler();
           return;
         }
 
@@ -162,7 +276,9 @@
                 <p>${escapeHtml(item.data.outcome || "No outcome provided.")}</p>
               </div>
             </div>
+            ${renderDeleteButton()}
           `;
+          attachDeleteButtonHandler();
           return;
         }
 
@@ -181,7 +297,9 @@
                 <p><strong>Improvement Plan:</strong> ${escapeHtml(item.data.responses?.improvementPlan || "N/A")}</p>
               </div>
             </div>
+            ${renderDeleteButton()}
           `;
+          attachDeleteButtonHandler();
         }
       }
 
@@ -211,8 +329,6 @@
         reflectionCount.textContent = `${reflections.size} total reflection submissions recorded.`;
         interactionCount.textContent = `${interactions.size} total interaction logs recorded.`;
         surveyCount.textContent = `${surveys.size} total survey submissions recorded.`;
-
-        return { reflections, interactions, surveys };
       }
 
       async function loadSubmissionList() {
@@ -228,6 +344,7 @@
           items.push({
             type: "weeklyReflection",
             id: docSnap.id,
+            collectionName: "weeklyReflections",
             data: docSnap.data(),
             submittedAt: docSnap.data().submittedAt?.seconds || 0
           });
@@ -237,6 +354,7 @@
           items.push({
             type: "interactionLog",
             id: docSnap.id,
+            collectionName: "interactionLogs",
             data: docSnap.data(),
             submittedAt: docSnap.data().submittedAt?.seconds || 0
           });
@@ -246,6 +364,7 @@
           items.push({
             type: "surveySubmission",
             id: docSnap.id,
+            collectionName: "surveySubmissions",
             data: docSnap.data(),
             submittedAt: docSnap.data().submittedAt?.seconds || 0
           });
@@ -260,12 +379,13 @@
               <p>No reflections, interaction logs, or survey submissions were found.</p>
             </article>
           `;
+          renderDetails(null);
           return;
         }
 
         items.forEach((item) => {
           const wrapper = document.createElement("article");
-          wrapper.className = "dashboard-card";
+          wrapper.className = "dashboard-card submission-list-card";
 
           let label = "";
           let sublabel = "";
@@ -290,6 +410,49 @@
 
         renderDetails(items[0]);
       }
+
+      cancelDeleteButton.addEventListener("click", closeDeleteModal);
+
+      confirmDeleteButton.addEventListener("click", async () => {
+        if (!selectedSubmission) {
+          setModalMessage("error", "No submission is selected.");
+          return;
+        }
+
+        const enteredId = confirmEmployeeId.value.trim();
+        if (!enteredId) {
+          setModalMessage("error", "Employee ID is required.");
+          return;
+        }
+
+        if (!session || enteredId !== session.employeeId) {
+          setModalMessage("error", "Employee ID did not match your signed-in account.");
+          return;
+        }
+
+        try {
+          await deleteDoc(doc(db, selectedSubmission.collectionName, selectedSubmission.id));
+
+          await addDoc(collection(db, "auditLogs"), {
+            actorEmployeeId: session.employeeId,
+            actorUsername: session.username,
+            actorDiscordId: session.discordId || null,
+            action: "delete_submission",
+            targetType: selectedSubmission.type,
+            targetId: selectedSubmission.id,
+            details: `Deleted ${selectedSubmission.type} submission ${selectedSubmission.id}.`,
+            createdAt: serverTimestamp()
+          });
+
+          closeDeleteModal();
+          selectedSubmission = null;
+          await loadCounts();
+          await loadSubmissionList();
+        } catch (error) {
+          console.error(error);
+          setModalMessage("error", "There was a problem deleting the submission.");
+        }
+      });
 
       Promise.all([loadCounts(), loadSubmissionList()]).catch((error) => {
         console.error(error);
