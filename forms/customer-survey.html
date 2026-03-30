@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cognitus Portal | Customer Survey</title>
+    <meta name="theme-color" content="#0a1020" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="topbar">
+        <a class="brand" href="../employee.html" aria-label="Cognitus Portal home">
+          <span class="brand-mark brand-mark-text">C</span>
+          <span class="brand-lockup">
+            <span class="brand-wordmark">Cognitus Portal</span>
+            <span class="brand-sub">Customer Survey</span>
+          </span>
+        </a>
+        <nav class="nav-links" aria-label="Primary navigation">
+          <a href="../dashboard.html">Dashboard</a>
+          <a href="../employee.html">Employee</a>
+        </nav>
+        <button class="button button-secondary" id="logoutButton" type="button">Log Out</button>
+      </header>
+
+      <main class="page-shell">
+        <div class="narrow-shell">
+          <span class="page-kicker">EMPLOYEE FORM</span>
+          <h1 class="page-title">Customer service survey.</h1>
+          <p class="page-intro">Submit a structured survey response for management visibility and service quality review.</p>
+
+          <section class="form-wrap" style="margin-top: 28px;">
+            <form id="surveyForm" class="apply-form">
+              <div class="form-grid">
+                <div class="form-group full">
+                  <label class="form-label" for="serviceRating">How would you rate your recent customer service performance?</label>
+                  <select class="form-select" id="serviceRating" required>
+                    <option value="">Select a rating</option>
+                    <option value="excellent">Excellent</option>
+                    <option value="good">Good</option>
+                    <option value="fair">Fair</option>
+                    <option value="needs-improvement">Needs Improvement</option>
+                  </select>
+                </div>
+                <div class="form-group full">
+                  <label class="form-label" for="customerTrend">What trend or recurring issue have you noticed in customer interactions?</label>
+                  <textarea class="form-textarea" id="customerTrend" required></textarea>
+                </div>
+                <div class="form-group full">
+                  <label class="form-label" for="improvementPlan">What should be improved in the customer experience or internal support workflow?</label>
+                  <textarea class="form-textarea" id="improvementPlan" required></textarea>
+                </div>
+              </div>
+              <div id="formMessage" class="form-message"></div>
+              <div class="form-actions">
+                <button class="button button-primary" type="submit">Submit Survey</button>
+                <span class="inline-status" id="formStatus">Ready for submission.</span>
+              </div>
+            </form>
+          </section>
+        </div>
+      </main>
+
+      <footer class="footer"><p>© 2026 Cognitus Portal. Internal use only.</p></footer>
+    </div>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+      import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+      import { requireSession, attachLogout } from "../js/auth.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCnFyOTUVOxz14Ef2BwtcxdTAr3-xj3uwE",
+        authDomain: "cognitus-solutio.firebaseapp.com",
+        projectId: "cognitus-solutio",
+        storageBucket: "cognitus-solutio.firebasestorage.app",
+        messagingSenderId: "44920534330",
+        appId: "1:44920534330:web:d295e189e573d40c360c03"
+      };
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const session = requireSession(["employee", "manager", "ownership"]);
+      attachLogout();
+
+      const form = document.getElementById("surveyForm");
+      const formMessage = document.getElementById("formMessage");
+      const formStatus = document.getElementById("formStatus");
+
+      function setMessage(type, text) {
+        formMessage.className = "form-message";
+        if (type === "success") formMessage.classList.add("is-success");
+        if (type === "error") formMessage.classList.add("is-error");
+        formMessage.textContent = text;
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        setMessage("", "");
+        formStatus.textContent = "Submitting survey...";
+        try {
+          await addDoc(collection(db, "surveySubmissions"), {
+            surveyType: "customerSurvey",
+            employeeId: session.employeeId,
+            username: session.username,
+            discordId: session.discordId || null,
+            responses: {
+              serviceRating: document.getElementById("serviceRating").value,
+              customerTrend: document.getElementById("customerTrend").value.trim(),
+              improvementPlan: document.getElementById("improvementPlan").value.trim()
+            },
+            submittedAt: serverTimestamp(),
+            status: "submitted"
+          });
+          form.reset();
+          setMessage("success", "Customer survey submitted successfully.");
+          formStatus.textContent = "Survey submitted.";
+        } catch (error) {
+          console.error(error);
+          setMessage("error", "There was a problem submitting the survey.");
+          formStatus.textContent = "Submission failed.";
+        }
+      });
+    </script>
+  </body>
+</html>
