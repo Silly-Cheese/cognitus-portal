@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cognitus Portal | Dashboard</title>
+    <meta name="theme-color" content="#0a1020" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html" aria-label="Cognitus Portal dashboard">
+          <span class="brand-mark brand-mark-text">C</span>
+          <span class="brand-lockup">
+            <span class="brand-wordmark">Cognitus Portal</span>
+            <span class="brand-sub">Role Dashboard</span>
+          </span>
+        </a>
+        <nav class="nav-links" aria-label="Primary navigation">
+          <a href="employee.html">Employee</a>
+          <a href="manager.html">Manager</a>
+          <a href="ownership.html">Ownership</a>
+        </nav>
+        <button class="button button-secondary" id="logoutButton" type="button">Log Out</button>
+      </header>
+
+      <main class="page-shell">
+        <div class="narrow-shell">
+          <span class="page-kicker">PORTAL OVERVIEW</span>
+          <h1 class="page-title">Welcome to the Cognitus Portal.</h1>
+          <p class="page-intro" id="welcomeText">Loading session details...</p>
+
+          <section class="grid-three" style="margin-top: 28px;">
+            <article class="dashboard-card">
+              <h3>Employee Workspace</h3>
+              <p>Complete unlocked surveys, submit weekly reflections, and file customer interaction logs from a role-limited workspace.</p>
+              <div class="form-actions" style="margin-top: 18px;">
+                <a class="button button-primary" href="employee.html">Open Employee View</a>
+              </div>
+            </article>
+
+            <article class="dashboard-card">
+              <h3>Manager Oversight</h3>
+              <p>Review employee participation, feedback trends, and interaction logging summaries from a broader analytics view.</p>
+              <div class="form-actions" style="margin-top: 18px;">
+                <a class="button button-primary" href="manager.html">Open Manager View</a>
+              </div>
+            </article>
+
+            <article class="dashboard-card">
+              <h3>Ownership Control</h3>
+              <p>Manage employees, control portal access, and lock or unlock forms through the highest privilege layer of the system.</p>
+              <div class="form-actions" style="margin-top: 18px;">
+                <a class="button button-primary" href="ownership.html">Open Ownership View</a>
+              </div>
+            </article>
+          </section>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <p>© 2026 Cognitus Portal. Internal use only.</p>
+      </footer>
+    </div>
+
+    <script type="module">
+      import { requireSession, attachLogout } from "./js/auth.js";
+
+      const session = requireSession(["employee", "manager", "ownership"]);
+      if (session) {
+        document.getElementById("welcomeText").textContent = `${session.username} (${session.employeeId}) is signed in with the role of ${session.role}. Use the portal sections below to access your authorized workspace.`;
+      }
+      attachLogout();
+    </script>
+  </body>
+</html>
