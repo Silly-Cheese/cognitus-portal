@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cognitus Portal | Manager Workspace</title>
+    <meta name="theme-color" content="#0a1020" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html" aria-label="Cognitus Portal home">
+          <span class="brand-mark brand-mark-text">C</span>
+          <span class="brand-lockup">
+            <span class="brand-wordmark">Cognitus Portal</span>
+            <span class="brand-sub">Manager Workspace</span>
+          </span>
+        </a>
+        <nav class="nav-links" aria-label="Primary navigation">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="#analytics">Analytics</a>
+          <a href="#submissions">Submissions</a>
+        </nav>
+        <button class="button button-secondary" id="logoutButton" type="button">Log Out</button>
+      </header>
+
+      <main class="page-shell">
+        <div class="narrow-shell">
+          <span class="page-kicker">MANAGER ACCESS</span>
+          <h1 class="page-title">Manager analytics and oversight.</h1>
+          <p class="page-intro" id="managerIntro">Loading manager view...</p>
+
+          <section id="analytics" class="grid-three" style="margin-top: 28px;">
+            <article class="analytics-card">
+              <h3>Total Weekly Reflections</h3>
+              <p class="muted" id="reflectionCount">Loading...</p>
+            </article>
+            <article class="analytics-card">
+              <h3>Total Interaction Logs</h3>
+              <p class="muted" id="interactionCount">Loading...</p>
+            </article>
+            <article class="analytics-card">
+              <h3>Total Survey Submissions</h3>
+              <p class="muted" id="surveyCount">Loading...</p>
+            </article>
+          </section>
+
+          <section id="submissions" style="margin-top: 28px;">
+            <h2 class="section-title">Recent employee feedback and logs</h2>
+            <p class="muted">This area summarizes recent form activity for managers. It is intended for general oversight rather than ownership-level control.</p>
+            <div id="managerResults" class="grid-two" style="margin-top: 18px;"></div>
+          </section>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <p>© 2026 Cognitus Portal. Internal use only.</p>
+      </footer>
+    </div>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+      import { getFirestore, collection, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+      import { requireSession, attachLogout } from "./js/auth.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCnFyOTUVOxz14Ef2BwtcxdTAr3-xj3uwE",
+        authDomain: "cognitus-solutio.firebaseapp.com",
+        projectId: "cognitus-solutio",
+        storageBucket: "cognitus-solutio.firebasestorage.app",
+        messagingSenderId: "44920534330",
+        appId: "1:44920534330:web:d295e189e573d40c360c03"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const session = requireSession(["manager", "ownership"]);
+      attachLogout();
+
+      const managerIntro = document.getElementById("managerIntro");
+      const managerResults = document.getElementById("managerResults");
+      const reflectionCount = document.getElementById("reflectionCount");
+      const interactionCount = document.getElementById("interactionCount");
+      const surveyCount = document.getElementById("surveyCount");
+
+      if (session) {
+        managerIntro.textContent = `${session.username} (${session.employeeId}) is signed in with ${session.role} access. This page provides general analytics over employee feedback and interaction logging.`;
+      }
+
+      async function loadCounts() {
+        const reflections = await getDocs(collection(db, "weeklyReflections"));
+        const interactions = await getDocs(collection(db, "interactionLogs"));
+        const surveys = await getDocs(collection(db, "surveySubmissions"));
+
+        reflectionCount.textContent = `${reflections.size} total reflection submissions recorded.`;
+        interactionCount.textContent = `${interactions.size} total interaction logs recorded.`;
+        surveyCount.textContent = `${surveys.size} total survey submissions recorded.`;
+      }
+
+      async function loadRecentActivity() {
+        managerResults.innerHTML = "";
+
+        const recentReflections = await getDocs(query(collection(db, "weeklyReflections"), orderBy("submittedAt", "desc"), limit(3)));
+        const recentInteractions = await getDocs(query(collection(db, "interactionLogs"), orderBy("submittedAt", "desc"), limit(3)));
+
+        if (recentReflections.empty && recentInteractions.empty) {
+          managerResults.innerHTML = '<article class="dashboard-card"><h3>No recent activity</h3><p>No reflection forms or interaction logs were found.</p></article>';
+          return;
+        }
+
+        recentReflections.forEach((docSnap) => {
+          const data = docSnap.data();
+          managerResults.innerHTML += `<article class="dashboard-card"><h3>Weekly Reflection</h3><p><strong>${data.username || "Unknown User"}</strong> submitted a reflection for <strong>${data.weekLabel || "unspecified week"}</strong>.</p><p class="muted">Status: ${data.status || "submitted"}</p></article>`;
+        });
+
+        recentInteractions.forEach((docSnap) => {
+          const data = docSnap.data();
+          managerResults.innerHTML += `<article class="dashboard-card"><h3>Interaction Log</h3><p><strong>${data.username || "Unknown User"}</strong> logged an interaction with outcome <strong>${data.outcome || "unspecified"}</strong>.</p><p class="muted">Type: ${data.interactionType || "general"}</p></article>`;
+        });
+      }
+
+      Promise.all([loadCounts(), loadRecentActivity()]).catch((error) => {
+        console.error(error);
+        managerResults.innerHTML = '<article class="dashboard-card"><h3>Load error</h3><p>There was a problem loading manager analytics.</p></article>';
+        reflectionCount.textContent = 'Unable to load.';
+        interactionCount.textContent = 'Unable to load.';
+        surveyCount.textContent = 'Unable to load.';
+      });
+    </script>
+  </body>
+</html>
