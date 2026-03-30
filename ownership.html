@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cognitus Portal | Ownership Controls</title>
+    <meta name="theme-color" content="#0a1020" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html" aria-label="Cognitus Portal home">
+          <span class="brand-mark brand-mark-text">C</span>
+          <span class="brand-lockup">
+            <span class="brand-wordmark">Cognitus Portal</span>
+            <span class="brand-sub">Ownership Controls</span>
+          </span>
+        </a>
+        <nav class="nav-links" aria-label="Primary navigation">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="#employees">Employees</a>
+          <a href="#forms">Form Controls</a>
+        </nav>
+        <button class="button button-secondary" id="logoutButton" type="button">Log Out</button>
+      </header>
+
+      <main class="page-shell">
+        <div class="narrow-shell">
+          <span class="page-kicker">OWNERSHIP ACCESS</span>
+          <h1 class="page-title">Ownership control center.</h1>
+          <p class="page-intro" id="ownershipIntro">Loading ownership controls...</p>
+
+          <section id="employees" class="grid-two" style="margin-top: 28px;">
+            <article class="dashboard-card">
+              <h3>Add employee</h3>
+              <form id="employeeForm" class="apply-form" style="margin-top: 16px;">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label" for="employeeId">Employee ID</label>
+                    <input class="form-input" id="employeeId" type="text" required />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="username">Username</label>
+                    <input class="form-input" id="username" type="text" required />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="discordId">Discord ID</label>
+                    <input class="form-input" id="discordId" type="text" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="role">Role</label>
+                    <select class="form-select" id="role" required>
+                      <option value="employee">Employee</option>
+                      <option value="manager">Manager</option>
+                      <option value="ownership">Ownership</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="department">Department</label>
+                    <input class="form-input" id="department" type="text" required />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <input class="form-input" id="password" type="text" required />
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <button class="button button-primary" type="submit">Create Employee</button>
+                </div>
+              </form>
+              <div id="employeeMessage" class="form-message" style="margin-top: 16px;"></div>
+            </article>
+
+            <article class="dashboard-card">
+              <h3>Current employees</h3>
+              <p class="muted">This list reflects active staff accounts stored in the employees collection.</p>
+              <div id="employeeList" style="margin-top: 18px; display: grid; gap: 14px;"></div>
+            </article>
+          </section>
+
+          <section id="forms" style="margin-top: 28px;">
+            <h2 class="section-title">Portal form controls</h2>
+            <p class="muted">Ownership can unlock or lock employee-facing forms directly from this page.</p>
+            <div id="formsControlGrid" class="grid-three" style="margin-top: 18px;"></div>
+          </section>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <p>© 2026 Cognitus Portal. Internal use only.</p>
+      </footer>
+    </div>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+      import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+      import { requireSession, attachLogout } from "./js/auth.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCnFyOTUVOxz14Ef2BwtcxdTAr3-xj3uwE",
+        authDomain: "cognitus-solutio.firebaseapp.com",
+        projectId: "cognitus-solutio",
+        storageBucket: "cognitus-solutio.firebasestorage.app",
+        messagingSenderId: "44920534330",
+        appId: "1:44920534330:web:d295e189e573d40c360c03"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const session = requireSession(["ownership"]);
+      attachLogout();
+
+      const ownershipIntro = document.getElementById("ownershipIntro");
+      const employeeForm = document.getElementById("employeeForm");
+      const employeeMessage = document.getElementById("employeeMessage");
+      const employeeList = document.getElementById("employeeList");
+      const formsControlGrid = document.getElementById("formsControlGrid");
+
+      if (session) {
+        ownershipIntro.textContent = `${session.username} (${session.employeeId}) is signed in with ownership access. This page manages employee accounts and form availability.`;
+      }
+
+      function showEmployeeMessage(type, text) {
+        employeeMessage.className = "form-message";
+        if (type === "success") employeeMessage.classList.add("is-success");
+        if (type === "error") employeeMessage.classList.add("is-error");
+        employeeMessage.textContent = text;
+      }
+
+      async function ensurePortalSettings() {
+        const ref = doc(db, "portalSettings", "GLOBAL");
+        const snap = await getDoc(ref);
+        if (!snap.exists()) {
+          await setDoc(ref, {
+            forms: {
+              weeklyReflection: { unlocked: true, rolesAllowed: ["employee", "manager", "ownership"] },
+              interactionLog: { unlocked: true, rolesAllowed: ["employee", "manager", "ownership"] },
+              customerSurvey: { unlocked: false, rolesAllowed: ["employee"] }
+            },
+            updatedAt: serverTimestamp(),
+            updatedBy: session ? session.employeeId : "system"
+          });
+        }
+      }
+
+      async function loadEmployees() {
+        const snap = await getDocs(collection(db, "employees"));
+        employeeList.innerHTML = "";
+        if (snap.empty) {
+          employeeList.innerHTML = '<div class="content-card"><h3>No employees found</h3><p>No staff accounts are currently stored.</p></div>';
+          return;
+        }
+
+        snap.forEach((docSnap) => {
+          const data = docSnap.data();
+          employeeList.innerHTML += `<div class="content-card"><h3>${data.username}</h3><p><strong>${data.employeeId}</strong> • ${data.role} • ${data.department || "unassigned"}</p><p class="muted">Portal Enabled: ${data.portalEnabled ? "Yes" : "No"} • Active: ${data.active ? "Yes" : "No"}</p></div>`;
+        });
+      }
+
+      async function loadFormControls() {
+        const settingsSnap = await getDoc(doc(db, "portalSettings", "GLOBAL"));
+        formsControlGrid.innerHTML = "";
+        if (!settingsSnap.exists()) return;
+
+        const settings = settingsSnap.data();
+        const forms = settings.forms || {};
+        Object.entries(forms).forEach(([key, value]) => {
+          formsControlGrid.innerHTML += `<article class="dashboard-card"><h3>${key}</h3><p>Unlocked: <strong>${value.unlocked ? "Yes" : "No"}</strong></p><div class="form-actions" style="margin-top: 18px;"><button class="button button-primary" type="button" data-form="${key}" data-next="${value.unlocked ? "lock" : "unlock"}">${value.unlocked ? "Lock" : "Unlock"}</button></div></article>`;
+        });
+
+        formsControlGrid.querySelectorAll("button[data-form]").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const formKey = button.dataset.form;
+            const next = button.dataset.next === "unlock";
+            await updateDoc(doc(db, "portalSettings", "GLOBAL"), {
+              [`forms.${formKey}.unlocked`]: next,
+              updatedAt: serverTimestamp(),
+              updatedBy: session ? session.employeeId : "system"
+            });
+            await addDoc(collection(db, "auditLogs"), {
+              actorEmployeeId: session ? session.employeeId : null,
+              actorUsername: session ? session.username : null,
+              actorDiscordId: session ? session.discordId || null : null,
+              action: next ? "unlock_form" : "lock_form",
+              targetType: "portalSetting",
+              targetId: formKey,
+              details: `${next ? "Unlocked" : "Locked"} ${formKey}.`,
+              createdAt: serverTimestamp()
+            });
+            await loadFormControls();
+          });
+        });
+      }
+
+      employeeForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        showEmployeeMessage("", "");
+
+        const payload = {
+          employeeId: document.getElementById("employeeId").value.trim(),
+          username: document.getElementById("username").value.trim(),
+          discordId: document.getElementById("discordId").value.trim() || null,
+          role: document.getElementById("role").value,
+          department: document.getElementById("department").value.trim(),
+          password: document.getElementById("password").value,
+          active: true,
+          portalEnabled: true,
+          createdAt: serverTimestamp(),
+          createdBy: session ? session.employeeId : null,
+          updatedAt: serverTimestamp(),
+          notes: ""
+        };
+
+        try {
+          await addDoc(collection(db, "employees"), payload);
+          await addDoc(collection(db, "auditLogs"), {
+            actorEmployeeId: session ? session.employeeId : null,
+            actorUsername: session ? session.username : null,
+            actorDiscordId: session ? session.discordId || null : null,
+            action: "create_employee",
+            targetType: "employee",
+            targetId: payload.employeeId,
+            details: `Created employee ${payload.employeeId}.`,
+            createdAt: serverTimestamp()
+          });
+          employeeForm.reset();
+          showEmployeeMessage("success", "Employee created successfully.");
+          await loadEmployees();
+        } catch (error) {
+          console.error(error);
+          showEmployeeMessage("error", "There was a problem creating the employee.");
+        }
+      });
+
+      Promise.all([ensurePortalSettings(), loadEmployees()])
+        .then(loadFormControls)
+        .catch((error) => {
+          console.error(error);
+          employeeList.innerHTML = '<div class="content-card"><h3>Load error</h3><p>There was a problem loading ownership controls.</p></div>';
+        });
+    </script>
+  </body>
+</html>
