@@ -122,4 +122,10 @@
           formStatus.textContent = "Log submitted.";
         } catch (error) {
           console.error(error);
-          setMessage("error", "There
+          setMessage("error", "There was a problem submitting the interaction log.");
+          formStatus.textContent = "Submission failed.";
+        }
+      });
+    </script>
+  </body>
+</html>
