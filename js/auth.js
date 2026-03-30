@@ -99,12 +99,14 @@ async function getEmployeeByEmployeeId(employeeId) {
 
 export async function requireSession(allowedRoles = []) {
   const session = getSession();
+
   if (!session) {
     window.location.href = "index.html";
     return null;
   }
 
   const employeeDoc = await getEmployeeByEmployeeId(session.employeeId);
+
   if (!employeeDoc) {
     clearSession();
     showDeactivatedScreen();
@@ -115,6 +117,7 @@ export async function requireSession(allowedRoles = []) {
   }
 
   const employee = employeeDoc.data();
+
   if (employee.active !== true || employee.portalEnabled !== true) {
     clearSession();
     showDeactivatedScreen();
@@ -138,6 +141,7 @@ export async function requireSession(allowedRoles = []) {
 export function attachLogout(buttonId = "logoutButton") {
   const button = document.getElementById(buttonId);
   if (!button) return;
+
   button.addEventListener("click", () => {
     clearSession();
     window.location.href = "index.html";
@@ -145,6 +149,7 @@ export function attachLogout(buttonId = "logoutButton") {
 }
 
 const loginForm = document.getElementById("loginForm");
+
 if (loginForm) {
   loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
