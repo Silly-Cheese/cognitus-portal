@@ -7,7 +7,9 @@
     <meta name="theme-color" content="#0a1020" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -32,26 +34,46 @@
         <div class="narrow-shell">
           <span class="page-kicker">OWNERSHIP TOOLS</span>
           <h1 class="page-title">Advanced employee administration.</h1>
-          <p class="page-intro">Reset passwords, deactivate employees, and delete employee records through a dedicated ownership-only workspace.</p>
+          <p class="page-intro">
+            Reset passwords, deactivate employees, reactivate employees, and delete employee records
+            through a dedicated ownership-only workspace.
+          </p>
 
           <section id="employees" class="form-wrap" style="margin-top: 28px;">
             <div class="form-grid">
               <div class="form-group full">
                 <label class="form-label" for="selectedEmployeeId">Employee ID</label>
-                <input class="form-input" id="selectedEmployeeId" type="text" placeholder="Example: EMP-0001" />
+                <input
+                  class="form-input"
+                  id="selectedEmployeeId"
+                  type="text"
+                  placeholder="Example: EMP-0001" />
               </div>
               <div class="form-group full">
                 <label class="form-label" for="newPassword">New Password</label>
-                <input class="form-input" id="newPassword" type="text" placeholder="Enter a new password for the selected employee" />
+                <input
+                  class="form-input"
+                  id="newPassword"
+                  type="text"
+                  placeholder="Enter a new password for the selected employee" />
               </div>
             </div>
 
             <div id="adminMessage" class="form-message" style="margin-top: 18px;"></div>
 
             <div class="form-actions" style="margin-top: 18px;">
-              <button class="button button-primary" id="resetPasswordButton" type="button">Reset / Change Password</button>
-              <button class="button button-secondary" id="deactivateButton" type="button">Deactivate Employee</button>
-              <button class="button button-secondary" id="deleteButton" type="button">Delete Employee</button>
+              <button class="button button-primary" id="resetPasswordButton" type="button">
+                Reset / Change Password
+              </button>
+              <button class="button button-secondary" id="deactivateButton" type="button">
+                Deactivate Employee
+              </button>
+              <button class="button button-secondary" id="reactivateButton" type="button">
+                Reactivate Employee
+              </button>
+              <button class="button button-secondary" id="deleteButton" type="button">
+                Delete Employee
+              </button>
             </div>
           </section>
 
@@ -70,7 +92,18 @@
 
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-      import { getFirestore, collection, getDocs, query, where, limit, updateDoc, deleteDoc, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+      import {
+        getFirestore,
+        collection,
+        getDocs,
+        query,
+        where,
+        limit,
+        updateDoc,
+        deleteDoc,
+        addDoc,
+        serverTimestamp
+      } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
       import { requireSession, attachLogout } from "./js/auth.js";
 
       const firebaseConfig = {
@@ -84,7 +117,8 @@
 
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
-      const session = requireSession(["ownership"]);
+      const session = await requireSession(["ownership"]);
+      if (!session) throw new Error("Session unavailable");
       attachLogout();
 
       const adminMessage = document.getElementById("adminMessage");
@@ -95,6 +129,17 @@
         if (type === "success") adminMessage.classList.add("is-success");
         if (type === "error") adminMessage.classList.add("is-error");
         adminMessage.textContent = text;
+      }
+
+      async function findEmployeeRecord(employeeId) {
+        const employeeQuery = query(
+          collection(db, "employees"),
+          where("employeeId", "==", employeeId),
+          limit(1)
+        );
+        const snapshot = await getDocs(employeeQuery);
+        if (snapshot.empty) return null;
+        return snapshot.docs[0];
       }
 
       async function writeAudit(action, targetId, details) {
@@ -110,45 +155,53 @@
         });
       }
 
-      async function findEmployeeRecord(employeeId) {
-        const q = query(collection(db, "employees"), where("employeeId", "==", employeeId), limit(1));
-        const snapshot = await getDocs(q);
-        if (snapshot.empty) return null;
-        return snapshot.docs[0];
-      }
-
       async function loadEmployees() {
         const snapshot = await getDocs(collection(db, "employees"));
         employeeReferenceList.innerHTML = "";
+
         if (snapshot.empty) {
-          employeeReferenceList.innerHTML = '<article class="dashboard-card"><h3>No employees found</h3><p>No employee records are currently stored.</p></article>';
+          employeeReferenceList.innerHTML =
+            '<article class="dashboard-card"><h3>No employees found</h3><p>No employee records are currently stored.</p></article>';
           return;
         }
 
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          employeeReferenceList.innerHTML += `<article class="dashboard-card"><h3>${data.username}</h3><p><strong>${data.employeeId}</strong> • ${data.role}</p><p class="muted">Active: ${data.active ? 'Yes' : 'No'} • Portal Enabled: ${data.portalEnabled ? 'Yes' : 'No'}</p></article>`;
+          employeeReferenceList.innerHTML += `
+            <article class="dashboard-card">
+              <h3>${data.username}</h3>
+              <p><strong>${data.employeeId}</strong> • ${data.role}</p>
+              <p class="muted">
+                Active: ${data.active ? "Yes" : "No"} •
+                Portal Enabled: ${data.portalEnabled ? "Yes" : "No"}
+              </p>
+            </article>
+          `;
         });
       }
 
       document.getElementById("resetPasswordButton").addEventListener("click", async () => {
         const employeeId = document.getElementById("selectedEmployeeId").value.trim();
         const newPassword = document.getElementById("newPassword").value;
+
         if (!employeeId || !newPassword) {
           setMessage("error", "Employee ID and new password are required.");
           return;
         }
+
         try {
           const employeeDoc = await findEmployeeRecord(employeeId);
           if (!employeeDoc) {
             setMessage("error", "Employee not found.");
             return;
           }
+
           await updateDoc(employeeDoc.ref, {
             password: newPassword,
             passwordLastChangedAt: serverTimestamp(),
             updatedAt: serverTimestamp()
           });
+
           await writeAudit("reset_password", employeeId, `Updated password for ${employeeId}.`);
           setMessage("success", "Password updated successfully.");
           document.getElementById("newPassword").value = "";
@@ -160,21 +213,25 @@
 
       document.getElementById("deactivateButton").addEventListener("click", async () => {
         const employeeId = document.getElementById("selectedEmployeeId").value.trim();
+
         if (!employeeId) {
           setMessage("error", "Employee ID is required.");
           return;
         }
+
         try {
           const employeeDoc = await findEmployeeRecord(employeeId);
           if (!employeeDoc) {
             setMessage("error", "Employee not found.");
             return;
           }
+
           await updateDoc(employeeDoc.ref, {
             active: false,
             portalEnabled: false,
             updatedAt: serverTimestamp()
           });
+
           await writeAudit("update_employee", employeeId, `Deactivated ${employeeId}.`);
           setMessage("success", "Employee deactivated successfully.");
           await loadEmployees();
@@ -184,20 +241,54 @@
         }
       });
 
-      document.getElementById("deleteButton").addEventListener("click", async () => {
+      document.getElementById("reactivateButton").addEventListener("click", async () => {
         const employeeId = document.getElementById("selectedEmployeeId").value.trim();
+
         if (!employeeId) {
           setMessage("error", "Employee ID is required.");
           return;
         }
-        const confirmed = window.confirm(`Delete employee ${employeeId}? This cannot be undone.`);
-        if (!confirmed) return;
+
         try {
           const employeeDoc = await findEmployeeRecord(employeeId);
           if (!employeeDoc) {
             setMessage("error", "Employee not found.");
             return;
           }
+
+          await updateDoc(employeeDoc.ref, {
+            active: true,
+            portalEnabled: true,
+            updatedAt: serverTimestamp()
+          });
+
+          await writeAudit("update_employee", employeeId, `Reactivated ${employeeId}.`);
+          setMessage("success", "Employee reactivated successfully.");
+          await loadEmployees();
+        } catch (error) {
+          console.error(error);
+          setMessage("error", "There was a problem reactivating the employee.");
+        }
+      });
+
+      document.getElementById("deleteButton").addEventListener("click", async () => {
+        const employeeId = document.getElementById("selectedEmployeeId").value.trim();
+
+        if (!employeeId) {
+          setMessage("error", "Employee ID is required.");
+          return;
+        }
+
+        const confirmed = window.confirm(`Delete employee ${employeeId}? This cannot be undone.`);
+        if (!confirmed) return;
+
+        try {
+          const employeeDoc = await findEmployeeRecord(employeeId);
+          if (!employeeDoc) {
+            setMessage("error", "Employee not found.");
+            return;
+          }
+
           await deleteDoc(employeeDoc.ref);
           await writeAudit("delete_employee", employeeId, `Deleted ${employeeId}.`);
           setMessage("success", "Employee deleted successfully.");
@@ -211,7 +302,8 @@
 
       loadEmployees().catch((error) => {
         console.error(error);
-        employeeReferenceList.innerHTML = '<article class="dashboard-card"><h3>Load error</h3><p>There was a problem loading the employee list.</p></article>';
+        employeeReferenceList.innerHTML =
+          '<article class="dashboard-card"><h3>Load error</h3><p>There was a problem loading the employee list.</p></article>';
       });
     </script>
   </body>
