@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cognitus Portal | Application Viewer</title>
+    <meta name="theme-color" content="#0a1020" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      .viewer-grid {
+        display: grid;
+        grid-template-columns: 380px 1fr;
+        gap: 22px;
+        margin-top: 28px;
+      }
+
+      .application-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .application-card-button {
+        width: 100%;
+        border: none;
+        background: transparent;
+        padding: 0;
+        text-align: left;
+        color: inherit;
+        cursor: pointer;
+      }
+
+      .application-card-button .dashboard-card {
+        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .application-card-button:hover .dashboard-card,
+      .application-card-button.active-card .dashboard-card {
+        transform: translateY(-1px);
+        border-color: rgba(142, 176, 255, 0.32);
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+      }
+
+      .detail-stack {
+        display: grid;
+        gap: 14px;
+      }
+
+      .response-card {
+        padding: 18px;
+        border-radius: 18px;
+        border: 1px solid rgba(138, 171, 255, 0.14);
+        background: rgba(255,255,255,0.03);
+      }
+
+      .response-card h3 {
+        margin-bottom: 8px;
+      }
+
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.58);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 999;
+        padding: 20px;
+      }
+
+      .modal-overlay.active {
+        display: flex;
+      }
+
+      .modal-card {
+        width: min(100%, 560px);
+        padding: 26px;
+        border-radius: 22px;
+        border: 1px solid rgba(112, 147, 255, 0.16);
+        background: linear-gradient(180deg, rgba(16, 24, 44, 0.96), rgba(8, 13, 26, 0.96));
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+      }
+
+      .modal-card h3 {
+        margin-bottom: 10px;
+      }
+
+      .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      @media (max-width: 980px) {
+        .viewer-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .meta-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html" aria-label="Cognitus Portal home">
+          <span class="brand-mark brand-mark-text">C</span>
+          <span class="brand-lockup">
+            <span class="brand-wordmark">Cognitus Portal</span>
+            <span class="brand-sub">Application Viewer</span>
+          </span>
+        </a>
+        <nav class="nav-links" aria-label="Primary navigation">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="manager.html">Manager</a>
+          <a href="#applicationList">Applications</a>
+        </nav>
+        <button class="button button-secondary" id="logoutButton" type="button">Log Out</button>
+      </header>
+
+      <main class="page-shell">
+        <div class="narrow-shell">
+          <span class="page-kicker">MANAGER ACCESS</span>
+          <h1 class="page-title">Application viewer.</h1>
+          <p class="page-intro" id="viewerIntro">Loading application viewer...</p>
+
+          <div class="viewer-grid">
+            <section id="applicationList" class="dashboard-card">
+              <h2 class="section-title">Applications</h2>
+              <p class="muted">Select an application to view and manage it.</p>
+              <div id="applicationListContainer" class="application-list" style="margin-top: 18px;"></div>
+            </section>
+
+            <section class="dashboard-card">
+              <h2 class="section-title">Selected application</h2>
+              <p class="muted">Review the full application details and take action below.</p>
+              <div id="applicationDetails" style="margin-top: 18px;">
+                <h3>No application selected</h3>
+                <p class="muted">Choose an application from the list to view its full responses.</p>
+              </div>
+            </section>
+          </div>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <p>© 2026 Cognitus Portal. Internal use only.</p>
+      </footer>
+    </div>
+
+    <div class="modal-overlay" id="deleteModal">
+      <div class="modal-card">
+        <h3>Delete Application</h3>
+        <p class="muted">Enter Employee ID to confirm permanent deletion of this application.</p>
+        <div class="form-group" style="margin-top: 16px;">
+          <label class="form-label" for="confirmEmployeeId">Employee ID</label>
+          <input class="form-input" id="confirmEmployeeId" type="text" placeholder="Example: EMP-0004" />
+        </div>
+        <div id="modalMessage" class="form-message" style="margin-top: 16px;"></div>
+        <div class="form-actions" style="margin-top: 18px;">
+          <button class="button button-primary" id="confirmDeleteButton" type="button">Confirm Delete</button>
+          <button class="button button-secondary" id="cancelDeleteButton" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+      import {
+        getFirestore,
+        collection,
+        getDocs,
+        doc,
+        updateDoc,
+        deleteDoc,
+        addDoc,
+        serverTimestamp
+      } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+      import { requireSession, attachLogout } from "./js/auth.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCnFyOTUVOxz14Ef2BwtcxdTAr3-xj3uwE",
+        authDomain: "cognitus-solutio.firebaseapp.com",
+        projectId: "cognitus-solutio",
+        storageBucket: "cognitus-solutio.firebasestorage.app",
+        messagingSenderId: "44920534330",
+        appId: "1:44920534330:web:d295e189e573d40c360c03"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const session = await requireSession(["manager", "ownership"]);
+      if (!session) throw new Error("Session unavailable");
+      attachLogout();
+
+      const viewerIntro = document.getElementById("viewerIntro");
+      const applicationListContainer = document.getElementById("applicationListContainer");
+      const applicationDetails = document.getElementById("applicationDetails");
+      const deleteModal = document.getElementById("deleteModal");
+      const confirmEmployeeId = document.getElementById("confirmEmployeeId");
+      const modalMessage = document.getElementById("modalMessage");
+      const confirmDeleteButton = document.getElementById("confirmDeleteButton");
+      const cancelDeleteButton = document.getElementById("cancelDeleteButton");
+
+      let selectedApplication = null;
+      let cachedApplications = [];
+
+      viewerIntro.textContent = `${session.username} (${session.employeeId}) is signed in with ${session.role} access. This page provides direct visibility into applications submitted on the main Cognitus website.`;
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function setModalMessage(type, text) {
+        modalMessage.className = "form-message";
+        if (type === "success") modalMessage.classList.add("is-success");
+        if (type === "error") modalMessage.classList.add("is-error");
+        modalMessage.textContent = text;
+      }
+
+      function setInlineMessage(type, text) {
+        const message = document.getElementById("viewerMessage");
+        if (!message) return;
+        message.className = "form-message";
+        if (type === "success") message.classList.add("is-success");
+        if (type === "error") message.classList.add("is-error");
+        message.textContent = text;
+      }
+
+      function openDeleteModal() {
+        confirmEmployeeId.value = "";
+        setModalMessage("", "");
+        deleteModal.classList.add("active");
+      }
+
+      function closeDeleteModal() {
+        confirmEmployeeId.value = "";
+        setModalMessage("", "");
+        deleteModal.classList.remove("active");
+      }
+
+      async function writeAudit(action, targetId, details) {
+        await addDoc(collection(db, "auditLogs"), {
+          actorEmployeeId: session.employeeId,
+          actorUsername: session.username,
+          actorDiscordId: session.discordId || null,
+          action,
+          targetType: "application",
+          targetId,
+          details,
+          createdAt: serverTimestamp()
+        });
+      }
+
+      function getDepartmentLabel(value) {
+        const labels = {
+          administration: "Administration",
+          "customer-support": "Customer Support",
+          "public-relations": "Public Relations"
+        };
+        return labels[value] || value || "Unknown";
+      }
+
+      function renderApplicationDetails(item) {
+        selectedApplication = item;
+        if (!item) {
+          applicationDetails.innerHTML = `
+            <h3>No application selected</h3>
+            <p class="muted">Choose an application from the list to view its full responses.</p>
+          `;
+          return;
+        }
+
+        const data = item.data;
+        applicationDetails.innerHTML = `
+          <div class="meta-grid">
+            <div class="response-card">
+              <h3>Application Metadata</h3>
+              <p><strong>Department:</strong> ${escapeHtml(getDepartmentLabel(data.department))}</p>
+              <p><strong>Status:</strong> ${escapeHtml(data.status || "submitted")}</p>
+              <p><strong>Discord ID:</strong> ${escapeHtml(data.discordId || "Unknown")}</p>
+              <p><strong>Application Type:</strong> ${escapeHtml(data.applicationType || "staff")}</p>
+            </div>
+            <div class="response-card">
+              <h3>Review Metadata</h3>
+              <p><strong>Reviewed By:</strong> ${escapeHtml(data.reviewedBy || "Not reviewed")}</p>
+              <p><strong>Decision Notes:</strong> ${escapeHtml(data.decisionNotes || "No notes yet.")}</p>
+            </div>
+          </div>
+
+          <div id="viewerMessage" class="form-message" style="margin-top: 16px;"></div>
+
+          <div class="detail-stack" style="margin-top: 16px;">
+            <div class="response-card">
+              <h3>Motivation</h3>
+              <p>${escapeHtml(data.motivation || "No response provided.")}</p>
+            </div>
+            <div class="response-card">
+              <h3>Experience</h3>
+              <p>${escapeHtml(data.experience || "No response provided.")}</p>
+            </div>
+            <div class="response-card">
+              <h3>Scenario Response</h3>
+              <p>${escapeHtml(data.scenario || "No response provided.")}</p>
+            </div>
+            <div class="response-card">
+              <h3>Additional Question</h3>
+              <p>${escapeHtml(data.additionalResponse || "No response provided.")}</p>
+            </div>
+          </div>
+
+          <div class="form-actions" style="margin-top: 20px;">
+            <button class="button button-primary" id="acceptApplicationButton" type="button">Accept Application</button>
+            <button class="button button-secondary" id="denyApplicationButton" type="button">Deny Application</button>
+            <button class="button button-secondary" id="deleteApplicationButton" type="button">Delete Application</button>
+          </div>
+        `;
+
+        document.getElementById("acceptApplicationButton").addEventListener("click", async () => {
+          try {
+            await updateDoc(doc(db, "applications", item.id), {
+              status: "accepted",
+              reviewedAt: serverTimestamp(),
+              reviewedBy: session.employeeId,
+              decisionNotes: "Accepted through Application Viewer."
+            });
+            await writeAudit("accept_application", item.id, `Accepted application ${item.id}.`);
+            setInlineMessage("success", "Application accepted successfully.");
+            await loadApplications(item.id);
+          } catch (error) {
+            console.error(error);
+            setInlineMessage("error", "There was a problem accepting this application.");
+          }
+        });
+
+        document.getElementById("denyApplicationButton").addEventListener("click", async () => {
+          try {
+            await updateDoc(doc(db, "applications", item.id), {
+              status: "denied",
+              reviewedAt: serverTimestamp(),
+              reviewedBy: session.employeeId,
+              decisionNotes: "Denied through Application Viewer."
+            });
+            await writeAudit("deny_application", item.id, `Denied application ${item.id}.`);
+            setInlineMessage("success", "Application denied successfully.");
+            await loadApplications(item.id);
+          } catch (error) {
+            console.error(error);
+            setInlineMessage("error", "There was a problem denying this application.");
+          }
+        });
+
+        document.getElementById("deleteApplicationButton").addEventListener("click", () => {
+          openDeleteModal();
+        });
+      }
+
+      async function loadApplications(preserveId = null) {
+        applicationListContainer.innerHTML = "";
+        const snapshot = await getDocs(collection(db, "applications"));
+        cachedApplications = [];
+
+        snapshot.forEach((docSnap) => {
+          cachedApplications.push({
+            id: docSnap.id,
+            data: docSnap.data(),
+            submittedAt: docSnap.data().submittedAt?.seconds || 0
+          });
+        });
+
+        cachedApplications.sort((a, b) => b.submittedAt - a.submittedAt);
+
+        if (!cachedApplications.length) {
+          applicationListContainer.innerHTML = '<article class="dashboard-card"><h3>No applications found</h3><p>No website applications are currently stored.</p></article>';
+          renderApplicationDetails(null);
+          return;
+        }
+
+        cachedApplications.forEach((item) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "application-card-button";
+          button.dataset.applicationId = item.id;
+          button.innerHTML = `
+            <div class="dashboard-card">
+              <h3>${escapeHtml(getDepartmentLabel(item.data.department))}</h3>
+              <p><strong>${escapeHtml(item.data.discordId || "Unknown Discord ID")}</strong></p>
+              <p class="muted">Status: ${escapeHtml(item.data.status || "submitted")}</p>
+            </div>
+          `;
+          button.addEventListener("click", () => {
+            document.querySelectorAll(".application-card-button").forEach((element) => element.classList.remove("active-card"));
+            button.classList.add("active-card");
+            renderApplicationDetails(item);
+          });
+          applicationListContainer.appendChild(button);
+        });
+
+        let target = cachedApplications[0];
+        if (preserveId) {
+          const found = cachedApplications.find((item) => item.id === preserveId);
+          if (found) target = found;
+        }
+
+        const targetButton = applicationListContainer.querySelector(`[data-application-id="${target.id}"]`);
+        if (targetButton) targetButton.classList.add("active-card");
+        renderApplicationDetails(target);
+      }
+
+      cancelDeleteButton.addEventListener("click", closeDeleteModal);
+
+      confirmDeleteButton.addEventListener("click", async () => {
+        if (!selectedApplication) {
+          setModalMessage("error", "No application is selected.");
+          return;
+        }
+
+        const enteredId = confirmEmployeeId.value.trim();
+        if (!enteredId) {
+          setModalMessage("error", "Employee ID is required.");
+          return;
+        }
+
+        if (enteredId !== session.employeeId) {
+          setModalMessage("error", "Employee ID did not match your signed-in account.");
+          return;
+        }
+
+        try {
+          await deleteDoc(doc(db, "applications", selectedApplication.id));
+          await writeAudit("delete_application", selectedApplication.id, `Deleted application ${selectedApplication.id}.`);
+          closeDeleteModal();
+          selectedApplication = null;
+          await loadApplications();
+        } catch (error) {
+          console.error(error);
+          setModalMessage("error", "There was a problem deleting this application.");
+        }
+      });
+
+      loadApplications().catch((error) => {
+        console.error(error);
+        applicationListContainer.innerHTML = '<article class="dashboard-card"><h3>Load error</h3><p>There was a problem loading applications.</p></article>';
+      });
+    </script>
+  </body>
+</html>
