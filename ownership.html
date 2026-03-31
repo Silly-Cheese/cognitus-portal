@@ -9,6 +9,47 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
+    <style>
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 999;
+        padding: 20px;
+      }
+
+      .modal-overlay.active {
+        display: flex;
+      }
+
+      .modal-card {
+        width: min(100%, 560px);
+        padding: 26px;
+        border-radius: 22px;
+        border: 1px solid rgba(112, 147, 255, 0.16);
+        background: linear-gradient(180deg, rgba(16, 24, 44, 0.96), rgba(8, 13, 26, 0.96));
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+      }
+
+      .modal-card h3 {
+        margin-bottom: 10px;
+      }
+
+      .audit-log-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      @media (max-width: 900px) {
+        .audit-log-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
   </head>
   <body>
     <div class="site-shell">
@@ -24,6 +65,7 @@
           <a href="dashboard.html">Dashboard</a>
           <a href="#employees">Employees</a>
           <a href="#forms">Form Controls</a>
+          <a href="#auditLogSection">Audit Log</a>
         </nav>
         <button class="button button-secondary" id="logoutButton" type="button">Log Out</button>
       </header>
@@ -36,6 +78,10 @@
 
           <div class="form-actions" style="margin-top: 24px;">
             <a class="button button-primary" href="ownership-admin.html">Open Employee Administration</a>
+          </div>
+
+          <div class="form-actions" style="margin-top: 16px;">
+            <button class="button button-secondary" id="openAuditLogButton" type="button">Open Audit Log</button>
           </div>
 
           <section id="employees" class="grid-two" style="margin-top: 28px;">
@@ -91,12 +137,37 @@
             <p class="muted">Ownership can unlock or lock employee-facing forms directly from this page.</p>
             <div id="formsControlGrid" class="grid-three" style="margin-top: 18px;"></div>
           </section>
+
+          <section id="auditLogSection" style="margin-top: 28px; display: none;">
+            <h2 class="section-title">Active Audit Log</h2>
+            <p class="muted">This panel displays recent audit activity across the portal.</p>
+            <div id="auditLogList" class="audit-log-grid" style="margin-top: 18px;"></div>
+          </section>
         </div>
       </main>
 
       <footer class="footer">
         <p>© 2026 Cognitus Portal. Internal use only.</p>
       </footer>
+    </div>
+
+    <div class="modal-overlay" id="auditAuthModal">
+      <div class="modal-card">
+        <h3>Audit Log Authorization</h3>
+        <p class="muted">Enter the authorization code to access the live audit log.</p>
+
+        <div class="form-group" style="margin-top: 16px;">
+          <label class="form-label" for="auditAuthCode">Authorization Code</label>
+          <input class="form-input" id="auditAuthCode" type="password" placeholder="Enter authorization code" />
+        </div>
+
+        <div id="auditAuthMessage" class="form-message" style="margin-top: 16px;"></div>
+
+        <div class="form-actions" style="margin-top: 18px;">
+          <button class="button button-primary" id="confirmAuditAccessButton" type="button">Unlock Audit Log</button>
+          <button class="button button-secondary" id="cancelAuditAccessButton" type="button">Cancel</button>
+        </div>
+      </div>
     </div>
 
     <script type="module">
@@ -113,6 +184,8 @@
         appId: "1:44920534330:web:d295e189e573d40c360c03"
       };
 
+      const AUDIT_LOG_AUTH_CODE = "COGNITUS-AUDIT-4721";
+
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
       const session = await requireSession(["ownership"]);
@@ -125,13 +198,50 @@
       const employeeList = document.getElementById("employeeList");
       const formsControlGrid = document.getElementById("formsControlGrid");
 
-      ownershipIntro.textContent = `${session.username} (${session.employeeId}) is signed in with ownership access. This page manages employee accounts and form availability.`;
+      const openAuditLogButton = document.getElementById("openAuditLogButton");
+      const auditAuthModal = document.getElementById("auditAuthModal");
+      const auditAuthCode = document.getElementById("auditAuthCode");
+      const auditAuthMessage = document.getElementById("auditAuthMessage");
+      const confirmAuditAccessButton = document.getElementById("confirmAuditAccessButton");
+      const cancelAuditAccessButton = document.getElementById("cancelAuditAccessButton");
+      const auditLogSection = document.getElementById("auditLogSection");
+      const auditLogList = document.getElementById("auditLogList");
+
+      ownershipIntro.textContent = `${session.username} (${session.employeeId}) is signed in with ownership access. This page manages employee accounts, form availability, and controlled audit visibility.`;
 
       function showEmployeeMessage(type, text) {
         employeeMessage.className = "form-message";
         if (type === "success") employeeMessage.classList.add("is-success");
         if (type === "error") employeeMessage.classList.add("is-error");
         employeeMessage.textContent = text;
+      }
+
+      function setAuditMessage(type, text) {
+        auditAuthMessage.className = "form-message";
+        if (type === "success") auditAuthMessage.classList.add("is-success");
+        if (type === "error") auditAuthMessage.classList.add("is-error");
+        auditAuthMessage.textContent = text;
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function openAuditModal() {
+        auditAuthCode.value = "";
+        setAuditMessage("", "");
+        auditAuthModal.classList.add("active");
+      }
+
+      function closeAuditModal() {
+        auditAuthModal.classList.remove("active");
+        auditAuthCode.value = "";
+        setAuditMessage("", "");
       }
 
       async function ensurePortalSettings() {
@@ -160,7 +270,7 @@
 
         snap.forEach((docSnap) => {
           const data = docSnap.data();
-          employeeList.innerHTML += `<div class="content-card"><h3>${data.username}</h3><p><strong>${data.employeeId}</strong> • ${data.role} • ${data.department || "unassigned"}</p><p class="muted">Portal Enabled: ${data.portalEnabled ? "Yes" : "No"} • Active: ${data.active ? "Yes" : "No"}</p></div>`;
+          employeeList.innerHTML += `<div class="content-card"><h3>${escapeHtml(data.username)}</h3><p><strong>${escapeHtml(data.employeeId)}</strong> • ${escapeHtml(data.role)} • ${escapeHtml(data.department || "unassigned")}</p><p class="muted">Portal Enabled: ${data.portalEnabled ? "Yes" : "No"} • Active: ${data.active ? "Yes" : "No"}</p></div>`;
         });
       }
 
@@ -172,7 +282,7 @@
         const settings = settingsSnap.data();
         const forms = settings.forms || {};
         Object.entries(forms).forEach(([key, value]) => {
-          formsControlGrid.innerHTML += `<article class="dashboard-card"><h3>${key}</h3><p>Unlocked: <strong>${value.unlocked ? "Yes" : "No"}</strong></p><div class="form-actions" style="margin-top: 18px;"><button class="button button-primary" type="button" data-form="${key}" data-next="${value.unlocked ? "lock" : "unlock"}">${value.unlocked ? "Lock" : "Unlock"}</button></div></article>`;
+          formsControlGrid.innerHTML += `<article class="dashboard-card"><h3>${escapeHtml(key)}</h3><p>Unlocked: <strong>${value.unlocked ? "Yes" : "No"}</strong></p><div class="form-actions" style="margin-top: 18px;"><button class="button button-primary" type="button" data-form="${escapeHtml(key)}" data-next="${value.unlocked ? "lock" : "unlock"}">${value.unlocked ? "Lock" : "Unlock"}</button></div></article>`;
         });
 
         formsControlGrid.querySelectorAll("button[data-form]").forEach((button) => {
@@ -196,6 +306,39 @@
             });
             await loadFormControls();
           });
+        });
+      }
+
+      async function loadAuditLog() {
+        auditLogList.innerHTML = "";
+        const snap = await getDocs(collection(db, "auditLogs"));
+
+        if (snap.empty) {
+          auditLogList.innerHTML = '<article class="dashboard-card"><h3>No audit entries</h3><p>No audit activity is currently stored.</p></article>';
+          return;
+        }
+
+        const rows = [];
+        snap.forEach((docSnap) => {
+          const data = docSnap.data();
+          rows.push({
+            id: docSnap.id,
+            ...data,
+            createdAtSeconds: data.createdAt?.seconds || 0
+          });
+        });
+
+        rows.sort((a, b) => b.createdAtSeconds - a.createdAtSeconds);
+
+        rows.slice(0, 20).forEach((entry) => {
+          auditLogList.innerHTML += `
+            <article class="dashboard-card">
+              <h3>${escapeHtml(entry.action || "Unknown Action")}</h3>
+              <p><strong>Actor:</strong> ${escapeHtml(entry.actorUsername || "Unknown")} (${escapeHtml(entry.actorEmployeeId || "No ID")})</p>
+              <p><strong>Target:</strong> ${escapeHtml(entry.targetType || "Unknown")} • ${escapeHtml(entry.targetId || "No Target")}</p>
+              <p class="muted">${escapeHtml(entry.details || "No details provided.")}</p>
+            </article>
+          `;
         });
       }
 
@@ -237,6 +380,27 @@
           console.error(error);
           showEmployeeMessage("error", "There was a problem creating the employee.");
         }
+      });
+
+      openAuditLogButton.addEventListener("click", openAuditModal);
+      cancelAuditAccessButton.addEventListener("click", closeAuditModal);
+
+      confirmAuditAccessButton.addEventListener("click", async () => {
+        const entered = auditAuthCode.value.trim();
+
+        if (!entered) {
+          setAuditMessage("error", "Authorization code is required.");
+          return;
+        }
+
+        if (entered !== AUDIT_LOG_AUTH_CODE) {
+          setAuditMessage("error", "Invalid authorization code.");
+          return;
+        }
+
+        closeAuditModal();
+        auditLogSection.style.display = "block";
+        await loadAuditLog();
       });
 
       Promise.all([ensurePortalSettings(), loadEmployees()])
