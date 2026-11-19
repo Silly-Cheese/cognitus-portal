@@ -1,0 +1,13 @@
+exclude:
+  - application-viewer.html
+  - dashboard.html
+  - employee.html
+  - forms
+  - functions
+  - index.html
+  - js
+  - manager.html
+  - ownership-admin.html
+  - ownership.html
+  - reset-password.html
+  - styles.css
